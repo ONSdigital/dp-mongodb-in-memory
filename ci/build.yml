@@ -1,0 +1,21 @@
+---
+
+platform: linux
+
+image_resource:
+  type: docker-image
+  source:
+    repository: golang
+    tag: 1.16.7
+
+inputs:
+  - name: dp-mongodb-in-memory
+
+outputs:
+  - name: build
+
+caches:
+  - path: go/
+
+run:
+  path: dp-mongodb-in-memory/ci/scripts/build.sh
