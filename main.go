@@ -10,15 +10,16 @@ import (
 	"strconv"
 
 	"github.com/ONSdigital/dp-mongodb-in-memory/download"
+	"github.com/ONSdigital/dp-mongodb-in-memory/monitor"
 	"github.com/ONSdigital/log.go/v2/log"
 )
 
 // Server represents a running MongoDB server.
 type Server struct {
-	cmd *exec.Cmd
-	// watcherCmd *exec.Cmd
-	dbDir string
-	port  int
+	cmd        *exec.Cmd
+	watcherCmd *exec.Cmd
+	dbDir      string
+	port       int
 }
 
 func init() {
@@ -61,11 +62,31 @@ func Start(version string) (*Server, error) {
 		return nil, err
 	}
 
+	log.Info(context.Background(), "Starting watcher")
+	// Start a watcher: the watcher is a subprocess that ensures if this process
+	// dies, the mongo server will be killed (and not reparented under init)
+	watcherCmd, err := monitor.Run(os.Getpid(), cmd.Process.Pid)
+	if err != nil {
+		log.Error(context.Background(), "Could not start watcher", err)
+
+		killErr := cmd.Process.Kill()
+		if killErr != nil {
+			log.Error(context.Background(), "Error stopping mongod process", killErr)
+		}
+
+		remErr := os.RemoveAll(dbDir)
+		if remErr != nil {
+			log.Error(context.Background(), "Error removing data directory", err, log.Data{"dir": dbDir})
+		}
+
+		return nil, err
+	}
+
 	return &Server{
-		cmd: cmd,
-		// watcherCmd: watcherCmd,
-		dbDir: dbDir,
-		port:  port,
+		cmd:        cmd,
+		watcherCmd: watcherCmd,
+		dbDir:      dbDir,
+		port:       port,
 	}, nil
 }
 
@@ -73,20 +94,17 @@ func Start(version string) (*Server, error) {
 func (s *Server) Stop() {
 	err := s.cmd.Process.Kill()
 	if err != nil {
-		log.Error(context.Background(), "Error stopping mongod process", err)
-		return
+		log.Error(context.Background(), "Error stopping mongod process", err, log.Data{"pid": s.cmd.Process.Pid})
 	}
 
-	// err = s.watcherCmd.Process.Kill()
-	// if err != nil {
-	// 	s.logger.Warnf("error stopping watcher process: %s", err)
-	// 	return
-	// }
+	err = s.watcherCmd.Process.Kill()
+	if err != nil {
+		log.Error(context.Background(), "error stopping watcher process", err, log.Data{"pid": s.watcherCmd.Process.Pid})
+	}
 
 	err = os.RemoveAll(s.dbDir)
 	if err != nil {
 		log.Error(context.Background(), "Error removing data directory", err, log.Data{"dir": s.dbDir})
-		return
 	}
 }
 
