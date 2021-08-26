@@ -13,7 +13,7 @@ import (
 	"github.com/ONSdigital/log.go/v2/log"
 )
 
-// Server represents a running MongoDB server
+// Server represents a running MongoDB server.
 type Server struct {
 	cmd *exec.Cmd
 	// watcherCmd *exec.Cmd
@@ -25,6 +25,8 @@ func init() {
 	log.Namespace = "dp-mongodb-in-memory"
 }
 
+// Start runs a MongoDB server at a given version using a random free port
+// and returns the Server.
 func Start(version string) (*Server, error) {
 	port, err := getFreePort()
 	if err != nil {
@@ -59,7 +61,6 @@ func Start(version string) (*Server, error) {
 		return nil, err
 	}
 
-	// Return a Memongo server
 	return &Server{
 		cmd: cmd,
 		// watcherCmd: watcherCmd,
@@ -68,7 +69,7 @@ func Start(version string) (*Server, error) {
 	}, nil
 }
 
-// Stop kills the mongo server
+// Stop kills the mongo server.
 func (s *Server) Stop() {
 	err := s.cmd.Process.Kill()
 	if err != nil {

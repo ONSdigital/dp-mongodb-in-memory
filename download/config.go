@@ -9,10 +9,10 @@ import (
 	"github.com/ONSdigital/log.go/v2/log"
 )
 
+//folderName is the name of the folder we will be saving mongod in the cache path
 const folderName = "dp-mongodb-in-memory"
 
-// Get the mongodb download url
-// Keeping this function as a variable for unit testing
+// getDownloadUrl returns the mongodb download url for a given version
 var getDownloadUrl = func(version string) (string, error) {
 	spec, err := MakeDownloadSpec(version)
 	if err != nil {
@@ -22,11 +22,12 @@ var getDownloadUrl = func(version string) (string, error) {
 	return spec.GetDownloadURL()
 }
 
-// Get an environment variable
+// getEnv returns the value of an environment variable
 var getEnv = func(key string) string {
 	return os.Getenv(key)
 }
 
+// Config keeps the configuration values for downloading and storing the Mongo binary
 type Config struct {
 	//The URL where the required mongodb tarball can be downloaded from
 	mongoUrl string
@@ -34,8 +35,9 @@ type Config struct {
 	cachePath string
 }
 
-// Create the config values for the given version
-// It will detect the OS system and
+// NewConfig creates the config values for the given version.
+// It will identify the appropriate mongodb artifact
+// and the cache path based on the current OS
 func NewConfig(version string) (*Config, error) {
 	downloadUrl, err := getDownloadUrl(version)
 	if err != nil {
@@ -53,6 +55,7 @@ func NewConfig(version string) (*Config, error) {
 	}, nil
 }
 
+// buildBinCachePath returns the full path to where the mongod binary should be located.
 func buildBinCachePath(downloadUrl string) (string, error) {
 	cacheHome, err := defaultBaseCachePath()
 	if err != nil {
@@ -71,6 +74,10 @@ func buildBinCachePath(downloadUrl string) (string, error) {
 	return path.Join(cacheHome, folderName, dirname, "mongod"), nil
 }
 
+// defaultBaseCachePath finds the OS cache path.
+//
+// Returns the value of XDG_CACHE_HOME environment variable if any.
+// Otherwise it uses the default Mac or Linux home caches
 func defaultBaseCachePath() (string, error) {
 	var cacheHome = getEnv("XDG_CACHE_HOME")
 
@@ -87,12 +94,12 @@ func defaultBaseCachePath() (string, error) {
 	return cacheHome, nil
 }
 
-// Get the url for the public signature file
+// mongoSignatureUrl returns the url for the public signature file.
 func (cfg *Config) mongoSignatureUrl() string {
 	return cfg.mongoUrl + ".sig"
 }
 
-// Get the url for the SHA256 file
+// mongoChecksumUrl returns the url for the SHA256 file
 func (cfg *Config) mongoChecksumUrl() string {
 	return cfg.mongoUrl + ".sha256"
 }

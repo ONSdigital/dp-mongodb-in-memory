@@ -21,7 +21,7 @@ func init() {
 	log.Namespace = "dp-mongodb-in-memory"
 }
 
-// Get the mongod path for the given config
+// GetMongoDB returns the path to the mongod binary for the given config
 // It will download one if not found in the cache
 func GetMongoDB(cfg Config) (string, error) {
 	// Check the cache
@@ -38,7 +38,8 @@ func GetMongoDB(cfg Config) (string, error) {
 	}
 }
 
-// Download a mongodb tarball and store the mongod exec file in the cache path.
+// downloadMongoDB will download a mongodb tarball and
+// store the mongod exec file in the cache path.
 // It returns the path to the saved file
 func downloadMongoDB(cfg Config) (string, error) {
 
@@ -83,6 +84,8 @@ func downloadMongoDB(cfg Config) (string, error) {
 	return cfg.cachePath, nil
 }
 
+// downloadFile downloads the file from the given url and stores it in a temporary file.
+// It returns the path to the temporary file where it has been downloaded
 func downloadFile(urlStr string) (afero.File, error) {
 	log.Info(context.Background(), "Downloading file", log.Data{"url": urlStr})
 
@@ -112,8 +115,9 @@ func downloadFile(urlStr string) (afero.File, error) {
 	return tgzTempFile, nil
 }
 
-// Extract the mongod executable file from the given tarball
-// to a temporary file. It returns the path to the extracted file
+// extractMongoBin extracts the mongod executable file
+// from the given tarball to a temporary file.
+// It returns the path to the extracted file
 func extractMongoBin(tgzTempFile afero.File) (string, error) {
 	_, seekErr := tgzTempFile.Seek(0, 0)
 	if seekErr != nil {

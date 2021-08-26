@@ -10,6 +10,7 @@ import (
 )
 
 // We define these as package vars so we can override it in tests
+
 var goOS = runtime.GOOS
 var goArch = runtime.GOARCH
 var getOsReleaseContent = func() (map[string]string, error) {
@@ -42,6 +43,13 @@ func MakeDownloadSpec(version string) (*DownloadSpec, error) {
 	parsedVersion, versionErr := parseVersion(version)
 	if versionErr != nil {
 		return nil, versionErr
+	}
+
+	if !versionGTE(parsedVersion, []int{4, 4, 0}) {
+		return nil, &UnsupportedMongoVersionError{
+			version: version,
+			msg:     "only version 4.4 and above are supported",
+		}
 	}
 
 	platform, platformErr := detectPlatform()
@@ -94,7 +102,7 @@ func (spec *DownloadSpec) GetDownloadURL() (string, error) {
 	), nil
 }
 
-// Parse a version string into an array [major, minor, patch]
+// parseVersion a version string into an array [major, minor, patch].
 func parseVersion(version string) ([]int, error) {
 	versionParts := strings.Split(version, ".")
 	if len(versionParts) < 3 {
@@ -128,16 +136,10 @@ func parseVersion(version string) ([]int, error) {
 		}
 	}
 
-	if (majorVersion < 4) || (majorVersion == 4 && minorVersion < 4) {
-		return nil, &UnsupportedMongoVersionError{
-			version: version,
-			msg:     "only version 4.4 and above are supported",
-		}
-	}
-
 	return []int{majorVersion, minorVersion, patchVersion}, nil
 }
 
+// versionGTE checks if a version is greater or equal than another version
 func versionGTE(a []int, b []int) bool {
 	if a[0] > b[0] {
 		return true
