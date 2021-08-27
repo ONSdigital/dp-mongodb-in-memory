@@ -52,14 +52,14 @@ func MakeDownloadSpec(version string) (*DownloadSpec, error) {
 		}
 	}
 
-	platform, platformErr := detectPlatform()
-	if platformErr != nil {
-		return nil, platformErr
-	}
-
 	arch, archErr := detectArch()
 	if archErr != nil {
 		return nil, archErr
+	}
+
+	platform, platformErr := detectPlatform()
+	if platformErr != nil {
+		return nil, platformErr
 	}
 
 	osName, osErr := detectLinuxId(parsedVersion)
@@ -82,12 +82,10 @@ func (spec *DownloadSpec) GetDownloadURL() (string, error) {
 
 	switch spec.Platform {
 	case "linux":
-		archiveName += "linux-" + spec.Arch
-
-		if spec.OSName != "" {
-			archiveName += "-" + spec.OSName
+		if spec.OSName == "" {
+			return "", fmt.Errorf("invalid spec: OS name not provided")
 		}
-
+		archiveName += "linux-" + spec.Arch + "-" + spec.OSName
 	case "osx":
 		archiveName += "macos-" + spec.Arch
 	default:
@@ -105,7 +103,7 @@ func (spec *DownloadSpec) GetDownloadURL() (string, error) {
 // parseVersion a version string into an array [major, minor, patch].
 func parseVersion(version string) ([]int, error) {
 	versionParts := strings.Split(version, ".")
-	if len(versionParts) < 3 {
+	if len(versionParts) != 3 {
 		return nil, &UnsupportedMongoVersionError{
 			version: version,
 			msg:     "MongoDB version number must be in the form x.y.z",
