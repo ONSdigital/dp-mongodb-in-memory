@@ -1,6 +1,10 @@
 package download
 
 import (
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"os"
 	"path"
 	"testing"
 	"time"
@@ -11,41 +15,103 @@ import (
 )
 
 func TestGetMongoDB(t *testing.T) {
+	const (
+		validMongodTarball   = "/mongodb-test.tgz"
+		invalidMongodTarball = "/random.tgz"
+		notTarball           = "/test"
+	)
+
 	// Use a memory backed filesystem (no persistence)
 	afs = afero.Afero{Fs: afero.NewMemMapFs()}
 
 	tmpCache, _ := afs.TempDir("", "")
 
-	var fileModificationTime time.Time
+	Convey("Having set up a mocked server", t, func() {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch r.URL.Path {
+			case invalidMongodTarball:
+				fallthrough
+			case validMongodTarball:
+				f, err := os.Open("testdata" + r.URL.Path)
+				if err != nil {
+					http.NotFound(w, r)
+					return
+				}
+				defer f.Close()
+				io.Copy(w, f)
+			case notTarball:
+				w.Write([]byte("Test data"))
+			default:
+				http.NotFound(w, r)
+			}
+		}))
 
-	Convey("Given a config object", t, func() {
 		cfg := new(Config)
-		cfg.mongoUrl = "https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-amazon2-5.0.2.tgz"
 		cfg.cachePath = path.Join(tmpCache, "mongod")
 
-		Convey("When we call GetMongoDB", func() {
-			binPath, err := GetMongoDB(*cfg)
-			Convey("Then it downloads the file when there is not one in cache", func() {
-				So(err, ShouldBeNil)
-				So(binPath, ShouldEqual, cfg.cachePath)
+		Convey("When the mongod exec file is not in cache", func() {
+			afs.Remove(cfg.cachePath)
+			Convey("And the requested url exists", func() {
+				cfg.mongoUrl = ts.URL + validMongodTarball
+				Convey("Then it downloads the tarball and stores the exec file in cache", func() {
+					startTime := time.Now()
 
-				stat, err := afs.Stat(binPath)
-				So(err, ShouldBeNil)
-				So(stat.Size(), ShouldBeGreaterThan, 50000000)
-				So(stat.Mode()&0100, ShouldNotBeZeroValue)
-				fileModificationTime = stat.ModTime()
+					binPath, err := GetMongoDB(*cfg)
+					So(err, ShouldBeNil)
+					So(binPath, ShouldEqual, cfg.cachePath)
+
+					stat, err := afs.Stat(binPath)
+					So(err, ShouldBeNil)
+					So(stat.Size(), ShouldBeGreaterThan, 0)
+					So(stat.Mode()&0100, ShouldNotBeZeroValue)
+					So(stat.ModTime(), ShouldHappenBetween, startTime, time.Now())
+				})
 			})
-			Convey("And it finds the file in cache if present", func() {
-				So(err, ShouldBeNil)
-				So(binPath, ShouldEqual, cfg.cachePath)
+			Convey("And the requested url can not be found", func() {
+				cfg.mongoUrl = ts.URL + "/invalid"
+				Convey("Then an error is returned", func() {
 
-				stat, err := afs.Stat(binPath)
-				So(err, ShouldBeNil)
-				So(stat.Size(), ShouldBeGreaterThan, 50000000)
-				So(stat.Mode()&0100, ShouldNotBeZeroValue)
-				// It should not have changed since when it was first downloaded
-				So(stat.ModTime(), ShouldEqual, fileModificationTime)
+					binPath, err := GetMongoDB(*cfg)
+					So(err, ShouldBeError)
+					So(binPath, ShouldBeBlank)
+				})
+			})
+			Convey("And the requested url is not a tarball", func() {
+				cfg.mongoUrl = ts.URL + notTarball
+				Convey("Then an error is returned", func() {
+
+					binPath, err := GetMongoDB(*cfg)
+					So(err, ShouldBeError)
+					So(binPath, ShouldBeBlank)
+				})
+			})
+			Convey("And the requested url is a tarball not containing a mongod file", func() {
+				cfg.mongoUrl = ts.URL + invalidMongodTarball
+				Convey("Then an error is returned", func() {
+
+					binPath, err := GetMongoDB(*cfg)
+					So(err, ShouldBeError)
+					So(binPath, ShouldBeBlank)
+				})
 			})
 		})
+
+		Convey("When the mongod exec file is found in cache", func() {
+			afs.Create(cfg.cachePath)
+
+			Convey("Then it uses the file in cache and it does not download it again", func() {
+				cfg.mongoUrl = ts.URL + "/should-not-be-called"
+
+				binPath, err := GetMongoDB(*cfg)
+				So(err, ShouldBeNil)
+				So(binPath, ShouldEqual, cfg.cachePath)
+			})
+		})
+
+		Reset(func() {
+			ts.Close()
+			afs.Remove(cfg.cachePath)
+		})
+
 	})
 }
