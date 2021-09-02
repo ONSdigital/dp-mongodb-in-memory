@@ -23,18 +23,18 @@ func init() {
 	log.Namespace = "dp-mongodb-in-memory"
 }
 
-// GetMongoDB returns the path to the mongod binary for the given config
-// It will download one if not found in the cache
-func GetMongoDB(cfg Config) (string, error) {
+// GetMongoDB ensures there is a mongodb binary in the cache path
+// It will download one if not already present in the cache
+func GetMongoDB(cfg Config) error {
 	// Check the cache
 	existsInCache, existsErr := afs.Exists(cfg.cachePath)
 	if existsErr != nil {
 		log.Error(context.Background(), "error checking cache", existsErr)
-		return "", existsErr
+		return existsErr
 	}
 	if existsInCache {
 		log.Info(context.Background(), "File found in cache", log.Data{"filename": cfg.cachePath})
-		return cfg.cachePath, nil
+		return nil
 	} else {
 		return downloadMongoDB(cfg)
 	}
@@ -43,14 +43,14 @@ func GetMongoDB(cfg Config) (string, error) {
 // downloadMongoDB will download a mongodb tarball and
 // store the mongod exec file in the cache path.
 // It returns the path to the saved file
-func downloadMongoDB(cfg Config) (string, error) {
+func downloadMongoDB(cfg Config) error {
 
 	downloadStartTime := time.Now()
 
 	downloadedFile, downloadErr := downloadFile(cfg.mongoUrl)
 	if downloadErr != nil {
 		log.Error(context.Background(), "error downloading file", downloadErr, log.Data{"url": cfg.mongoUrl})
-		return "", downloadErr
+		return downloadErr
 	}
 
 	defer func() {
@@ -61,29 +61,29 @@ func downloadMongoDB(cfg Config) (string, error) {
 	validErr := verify(downloadedFile.Name(), cfg)
 	if validErr != nil {
 		log.Error(context.Background(), "error verifying integrity of MongoDB package", validErr, log.Data{"url": cfg.mongoUrl})
-		return "", validErr
+		return validErr
 	}
 
 	mongodTmpFile, mongoTmpErr := extractMongoBin(downloadedFile)
 	if mongoTmpErr != nil {
-		return "", mongoTmpErr
+		return mongoTmpErr
 	}
 
 	mkdirErr := afs.MkdirAll(path.Dir(cfg.cachePath), 0755)
 	if mkdirErr != nil {
 		log.Error(context.Background(), "error creating cache directory", mkdirErr, log.Data{"dir": path.Dir(cfg.cachePath)})
-		return "", mkdirErr
+		return mkdirErr
 	}
 
 	renameErr := afs.Rename(mongodTmpFile, cfg.cachePath)
 	if renameErr != nil {
 		log.Error(context.Background(), "error copying mongod binary", renameErr, log.Data{"filename-from": mongodTmpFile, "filename-to": cfg.cachePath})
-		return "", renameErr
+		return renameErr
 	}
 
 	log.Info(context.Background(), "mongod downloaded and stored in cache", log.Data{"filename": cfg.cachePath, "ellapsed": time.Since(downloadStartTime).String()})
 
-	return cfg.cachePath, nil
+	return nil
 }
 
 // downloadFile downloads the file from the given url and stores it in a temporary file.

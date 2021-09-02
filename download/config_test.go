@@ -64,9 +64,11 @@ func TestNewConfig(t *testing.T) {
 					goOS = "win32"
 					Convey("Then NewConfig errors", func() {
 						cfg, err := NewConfig("version")
-						So(err, ShouldBeError)
 						So(cfg, ShouldBeNil)
-						So(err.Error(), ShouldEqual, "unsupported system: OS 'win32'")
+						So(err, ShouldBeError)
+						expectedError := &UnsupportedSystemError{msg: "OS 'win32'"}
+						So(err, ShouldResemble, expectedError)
+						So(err, ShouldHaveSameTypeAs, expectedError)
 					})
 				})
 				Reset(func() {

@@ -41,7 +41,7 @@ func TestGetDownloadURL(t *testing.T) {
 
 					So(url, ShouldBeBlank)
 					So(err, ShouldBeError)
-					So(err.Error(), ShouldEqual, "invalid spec: OS name not provided")
+					So(err, ShouldResemble, errors.New("invalid spec: OS name not provided"))
 				})
 			})
 		})
@@ -54,7 +54,7 @@ func TestGetDownloadURL(t *testing.T) {
 
 				So(url, ShouldBeBlank)
 				So(err, ShouldBeError)
-				So(err.Error(), ShouldEqual, "invalid spec: unsupported platform win32")
+				So(err, ShouldResemble, errors.New("invalid spec: unsupported platform win32"))
 			})
 		})
 	})
@@ -90,7 +90,7 @@ func TestMakeDownloadSpec(t *testing.T) {
 					linuxId      string
 					linuxVersion string
 					expectedSpec *DownloadSpec
-					expectedErr  string
+					expectedErr  error
 				}{
 					"Ubuntu 20.04": {
 						linuxId:      "ubuntu",
@@ -135,7 +135,7 @@ func TestMakeDownloadSpec(t *testing.T) {
 					"Old Ubuntu": {
 						linuxId:      "ubuntu",
 						linuxVersion: "14.04",
-						expectedErr:  "unsupported system: invalid ubuntu version 14 (min 16)",
+						expectedErr:  &UnsupportedSystemError{msg: "invalid ubuntu version 14 (min 16)"},
 					},
 					"Debian 10": {
 						linuxId:      "debian",
@@ -160,17 +160,17 @@ func TestMakeDownloadSpec(t *testing.T) {
 					"Old Debian": {
 						linuxId:      "debian",
 						linuxVersion: "8.1",
-						expectedErr:  "unsupported system: invalid debian version 8 (min 9)",
+						expectedErr:  &UnsupportedSystemError{msg: "invalid debian version 8 (min 9)"},
 					},
 					"Other Linux": {
 						linuxId:      "fedora",
 						linuxVersion: "17",
-						expectedErr:  "unsupported system: invalid linux version 'fedora'",
+						expectedErr:  &UnsupportedSystemError{msg: "invalid linux version 'fedora'"},
 					},
 					"Invalid linux version": {
 						linuxId:      "fedora",
 						linuxVersion: "vvv111",
-						expectedErr:  "unsupported system: invalid version number vvv111",
+						expectedErr:  &UnsupportedSystemError{msg: "invalid version number vvv111"},
 					},
 				}
 				for name, tc := range tests {
@@ -183,9 +183,10 @@ func TestMakeDownloadSpec(t *testing.T) {
 						}
 						Convey("Then the returned spec is correct", func() {
 							spec, err := MakeDownloadSpec(version)
-							if tc.expectedErr != "" {
+							if tc.expectedErr != nil {
 								So(err, ShouldBeError)
-								So(err.Error(), ShouldEqual, tc.expectedErr)
+								So(err, ShouldResemble, tc.expectedErr)
+								So(err, ShouldHaveSameTypeAs, tc.expectedErr)
 							} else {
 								So(err, ShouldBeNil)
 							}
@@ -216,9 +217,11 @@ func TestMakeDownloadSpec(t *testing.T) {
 				goOS = "win32"
 				Convey("Then an error is returned", func() {
 					spec, err := MakeDownloadSpec(version)
-					So(err, ShouldNotBeNil)
-					So(err.Error(), ShouldEqual, "unsupported system: OS "+goOS+" not supported")
 					So(spec, ShouldBeNil)
+					So(err, ShouldBeError)
+					expectedError := &UnsupportedSystemError{msg: "OS " + goOS + " not supported"}
+					So(err, ShouldResemble, expectedError)
+					So(err, ShouldHaveSameTypeAs, expectedError)
 				})
 			})
 
@@ -231,9 +234,11 @@ func TestMakeDownloadSpec(t *testing.T) {
 			goArch = "386"
 			Convey("Then an error is returned", func() {
 				spec, err := MakeDownloadSpec(version)
-				So(err, ShouldBeError)
-				So(err.Error(), ShouldEqual, "unsupported system: architecture "+goArch+" not supported")
 				So(spec, ShouldBeNil)
+				So(err, ShouldBeError)
+				expectedError := &UnsupportedSystemError{msg: "architecture " + goArch + " not supported"}
+				So(err, ShouldResemble, expectedError)
+				So(err, ShouldHaveSameTypeAs, expectedError)
 			})
 		})
 
@@ -247,63 +252,98 @@ func TestMakeDownloadSpec(t *testing.T) {
 			version := "version"
 			Convey("Then an error is returned", func() {
 				spec, err := MakeDownloadSpec(version)
-				So(err, ShouldBeError)
-				So(err.Error(), ShouldEqual, "unsupported MongoDB version \""+version+"\": MongoDB version number must be in the form x.y.z")
 				So(spec, ShouldBeNil)
+				So(err, ShouldBeError)
+				expectedError := &UnsupportedMongoVersionError{
+					version: version,
+					msg:     "MongoDB version number must be in the form x.y.z",
+				}
+				So(err, ShouldResemble, expectedError)
+				So(err, ShouldHaveSameTypeAs, expectedError)
 			})
 		})
 		Convey("With less than 2 periods", func() {
 			version := "1.2"
 			Convey("Then an error is returned", func() {
 				spec, err := MakeDownloadSpec(version)
-				So(err, ShouldBeError)
-				So(err.Error(), ShouldEqual, "unsupported MongoDB version \""+version+"\": MongoDB version number must be in the form x.y.z")
 				So(spec, ShouldBeNil)
+				So(err, ShouldBeError)
+				expectedError := &UnsupportedMongoVersionError{
+					version: version,
+					msg:     "MongoDB version number must be in the form x.y.z",
+				}
+				So(err, ShouldResemble, expectedError)
+				So(err, ShouldHaveSameTypeAs, expectedError)
 			})
 		})
 		Convey("With more than 2 periods", func() {
 			version := "2.1.0.a"
 			Convey("Then an error is returned", func() {
 				spec, err := MakeDownloadSpec(version)
-				So(err, ShouldBeError)
-				So(err.Error(), ShouldEqual, "unsupported MongoDB version \""+version+"\": MongoDB version number must be in the form x.y.z")
 				So(spec, ShouldBeNil)
+				So(err, ShouldBeError)
+				expectedError := &UnsupportedMongoVersionError{
+					version: version,
+					msg:     "MongoDB version number must be in the form x.y.z",
+				}
+				So(err, ShouldResemble, expectedError)
+				So(err, ShouldHaveSameTypeAs, expectedError)
 			})
 		})
 		Convey("With an invalid major version", func() {
 			version := "a.1.0"
 			Convey("Then an error is returned", func() {
 				spec, err := MakeDownloadSpec(version)
-				So(err, ShouldBeError)
-				So(err.Error(), ShouldEqual, "unsupported MongoDB version \""+version+"\": could not parse major version")
 				So(spec, ShouldBeNil)
+				So(err, ShouldBeError)
+				expectedError := &UnsupportedMongoVersionError{
+					version: version,
+					msg:     "could not parse major version",
+				}
+				So(err, ShouldResemble, expectedError)
+				So(err, ShouldHaveSameTypeAs, expectedError)
 			})
 		})
 		Convey("With an invalid minor version", func() {
 			version := "4.minor.0"
 			Convey("Then an error is returned", func() {
 				spec, err := MakeDownloadSpec(version)
-				So(err, ShouldBeError)
-				So(err.Error(), ShouldEqual, "unsupported MongoDB version \""+version+"\": could not parse minor version")
 				So(spec, ShouldBeNil)
+				So(err, ShouldBeError)
+				expectedError := &UnsupportedMongoVersionError{
+					version: version,
+					msg:     "could not parse minor version",
+				}
+				So(err, ShouldResemble, expectedError)
+				So(err, ShouldHaveSameTypeAs, expectedError)
 			})
 		})
 		Convey("With an invalid patch version", func() {
 			version := "4.7.pp"
 			Convey("Then an error is returned", func() {
 				spec, err := MakeDownloadSpec(version)
-				So(err, ShouldBeError)
-				So(err.Error(), ShouldEqual, "unsupported MongoDB version \""+version+"\": could not parse patch version")
 				So(spec, ShouldBeNil)
+				So(err, ShouldBeError)
+				expectedError := &UnsupportedMongoVersionError{
+					version: version,
+					msg:     "could not parse patch version",
+				}
+				So(err, ShouldResemble, expectedError)
+				So(err, ShouldHaveSameTypeAs, expectedError)
 			})
 		})
 		Convey("With a non-supported old version", func() {
 			version := "4.2.15"
 			Convey("Then an error is returned", func() {
 				spec, err := MakeDownloadSpec(version)
-				So(err, ShouldBeError)
-				So(err.Error(), ShouldEqual, "unsupported MongoDB version \""+version+"\": only version 4.4 and above are supported")
 				So(spec, ShouldBeNil)
+				So(err, ShouldBeError)
+				expectedError := &UnsupportedMongoVersionError{
+					version: version,
+					msg:     "only version 4.4 and above are supported",
+				}
+				So(err, ShouldResemble, expectedError)
+				So(err, ShouldHaveSameTypeAs, expectedError)
 			})
 		})
 	})
