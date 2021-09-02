@@ -10,7 +10,6 @@ import (
 	"time"
 
 	. "github.com/smartystreets/goconvey/convey"
-
 	"github.com/spf13/afero"
 )
 
@@ -19,6 +18,7 @@ func TestGetMongoDB(t *testing.T) {
 		validMongodTarball   = "/mongodb-test.tgz"
 		invalidMongodTarball = "/random.tgz"
 		notTarball           = "/test"
+		corrupted            = "/corrupted"
 	)
 
 	// Use a memory backed filesystem (no persistence)
@@ -28,22 +28,13 @@ func TestGetMongoDB(t *testing.T) {
 
 	Convey("Having set up a mocked server", t, func() {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			switch r.URL.Path {
-			case invalidMongodTarball:
-				fallthrough
-			case validMongodTarball:
-				f, err := os.Open("testdata" + r.URL.Path)
-				if err != nil {
-					http.NotFound(w, r)
-					return
-				}
-				defer f.Close()
-				io.Copy(w, f)
-			case notTarball:
-				w.Write([]byte("Test data"))
-			default:
+			f, err := os.Open("testdata" + r.URL.Path)
+			if err != nil {
 				http.NotFound(w, r)
+				return
 			}
+			defer f.Close()
+			io.Copy(w, f)
 		}))
 
 		cfg := new(Config)
@@ -73,6 +64,17 @@ func TestGetMongoDB(t *testing.T) {
 
 					binPath, err := GetMongoDB(*cfg)
 					So(err, ShouldBeError)
+					So(err.Error(), ShouldEqual, "invalid status code 404")
+					So(binPath, ShouldBeBlank)
+				})
+			})
+			Convey("And the requested file's checksum can not be verified", func() {
+				cfg.mongoUrl = ts.URL + corrupted
+				Convey("Then an error is returned", func() {
+
+					binPath, err := GetMongoDB(*cfg)
+					So(err, ShouldBeError)
+					So(err.Error(), ShouldEqual, "checksum verification failed")
 					So(binPath, ShouldBeBlank)
 				})
 			})

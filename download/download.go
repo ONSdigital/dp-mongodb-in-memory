@@ -4,6 +4,8 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -175,7 +177,53 @@ func extractMongoBin(tgzTempFile afero.File) (string, error) {
 	return mongodTmpFile.Name(), nil
 }
 
+// verify checks the integrity of the mongoFile.
+// It uses the config file to download the checksum file
+// and compares its value against the actual mongoFile checksum
 func verify(mongoFile string, cfg Config) error {
-	//TODO implement validation against checksum/gpg key
+
+	checksumFile, downloadErr := downloadFile(cfg.mongoChecksumUrl())
+	if downloadErr != nil {
+		log.Error(context.Background(), "error downloading checksum file", downloadErr, log.Data{"url": cfg.mongoChecksumUrl()})
+		return downloadErr
+	}
+
+	defer func() {
+		_ = checksumFile.Close()
+		_ = afs.Remove(checksumFile.Name())
+	}()
+
+	content, err := afs.ReadFile(checksumFile.Name())
+	if err != nil {
+		log.Error(context.Background(), "error reading checksum file", err)
+		return err
+	}
+	s := strings.Split(string(content), " ")
+	checksum := s[0]
+
+	mongoChecksum, err := sha256Sum(mongoFile)
+	if err != nil {
+		log.Error(context.Background(), "error calculating SHA256 sum", err)
+		return err
+	}
+
+	if checksum != mongoChecksum {
+		return fmt.Errorf("checksum verification failed")
+	}
 	return nil
+}
+
+// sha256Sum returns the SHA256 checksum of the file
+func sha256Sum(filename string) (string, error) {
+	file, err := afs.Open(filename)
+	if err != nil {
+		return "", err
+	}
+
+	hash := sha256.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(hash.Sum(nil)), nil
 }
