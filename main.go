@@ -125,11 +125,10 @@ func getOrDownloadBinPath(version string) (string, error) {
 		return "", err
 	}
 
-	binPath, err := download.GetMongoDB(*config)
-	if err != nil {
+	if err := download.GetMongoDB(*config); err != nil {
 		return "", err
 	}
-	return binPath, nil
+	return config.MongoPath(), nil
 }
 
 func getFreePort() (int, error) {

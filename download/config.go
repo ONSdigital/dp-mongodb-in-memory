@@ -94,6 +94,11 @@ func defaultBaseCachePath() (string, error) {
 	return cacheHome, nil
 }
 
+// MongoPath returns the path to the mongod executable file
+func (cfg *Config) MongoPath() string {
+	return cfg.cachePath
+}
+
 // mongoSignatureUrl returns the url for the public signature file.
 func (cfg *Config) mongoSignatureUrl() string {
 	return cfg.mongoUrl + ".sig"

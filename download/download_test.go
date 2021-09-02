@@ -56,11 +56,10 @@ func TestGetMongoDB(t *testing.T) {
 				Convey("Then it downloads the tarball and stores the exec file in cache", func() {
 					startTime := time.Now()
 
-					binPath, err := GetMongoDB(*cfg)
+					err := GetMongoDB(*cfg)
 					So(err, ShouldBeNil)
-					So(binPath, ShouldEqual, cfg.cachePath)
 
-					stat, err := afs.Stat(binPath)
+					stat, err := afs.Stat(cfg.cachePath)
 					So(err, ShouldBeNil)
 					So(stat.Size(), ShouldBeGreaterThan, 0)
 					So(stat.Mode()&0100, ShouldNotBeZeroValue)
@@ -70,28 +69,22 @@ func TestGetMongoDB(t *testing.T) {
 			Convey("And the requested url can not be found", func() {
 				cfg.mongoUrl = ts.URL + "/invalid"
 				Convey("Then an error is returned", func() {
-
-					binPath, err := GetMongoDB(*cfg)
+					err := GetMongoDB(*cfg)
 					So(err, ShouldBeError)
-					So(binPath, ShouldBeBlank)
 				})
 			})
 			Convey("And the requested url is not a tarball", func() {
 				cfg.mongoUrl = ts.URL + notTarball
 				Convey("Then an error is returned", func() {
-
-					binPath, err := GetMongoDB(*cfg)
+					err := GetMongoDB(*cfg)
 					So(err, ShouldBeError)
-					So(binPath, ShouldBeBlank)
 				})
 			})
 			Convey("And the requested url is a tarball not containing a mongod file", func() {
 				cfg.mongoUrl = ts.URL + invalidMongodTarball
 				Convey("Then an error is returned", func() {
-
-					binPath, err := GetMongoDB(*cfg)
+					err := GetMongoDB(*cfg)
 					So(err, ShouldBeError)
-					So(binPath, ShouldBeBlank)
 				})
 			})
 		})
@@ -102,9 +95,8 @@ func TestGetMongoDB(t *testing.T) {
 			Convey("Then it uses the file in cache and it does not download it again", func() {
 				cfg.mongoUrl = ts.URL + "/should-not-be-called"
 
-				binPath, err := GetMongoDB(*cfg)
+				err := GetMongoDB(*cfg)
 				So(err, ShouldBeNil)
-				So(binPath, ShouldEqual, cfg.cachePath)
 			})
 		})
 
