@@ -10,8 +10,12 @@ import (
 func TestGetDownloadURL(t *testing.T) {
 	Convey("Given a DownloadSpec object", t, func() {
 		spec := &DownloadSpec{
-			Version: "5.0.2",
-			Arch:    "x86_64",
+			version: &Version{
+				Major: 5,
+				Minor: 0,
+				Patch: 2,
+			},
+			Arch: "x86_64",
 		}
 		Convey("When platform is Mac", func() {
 			spec.Platform = "osx"
@@ -65,7 +69,11 @@ func TestMakeDownloadSpec(t *testing.T) {
 	var originalGoArch = goArch
 
 	Convey("Given a valid MongoDB version", t, func() {
-		version := "5.0.4"
+		version := Version{
+			Major: 5,
+			Minor: 0,
+			Patch: 4,
+		}
 
 		Convey("When running on a x64 architecture", func() {
 			goArch = "amd64"
@@ -76,7 +84,11 @@ func TestMakeDownloadSpec(t *testing.T) {
 
 					So(err, ShouldBeNil)
 					So(spec, ShouldResemble, &DownloadSpec{
-						Version:  "5.0.4",
+						version: &Version{
+							Major: 5,
+							Minor: 0,
+							Patch: 4,
+						},
 						Arch:     "x86_64",
 						Platform: "osx",
 					})
@@ -96,7 +108,7 @@ func TestMakeDownloadSpec(t *testing.T) {
 						linuxId:      "ubuntu",
 						linuxVersion: "20.04",
 						expectedSpec: &DownloadSpec{
-							Version:  "5.0.4",
+							version:  &version,
 							Arch:     "x86_64",
 							Platform: "linux",
 							OSName:   "ubuntu2004",
@@ -106,7 +118,7 @@ func TestMakeDownloadSpec(t *testing.T) {
 						linuxId:      "ubuntu",
 						linuxVersion: "20.10",
 						expectedSpec: &DownloadSpec{
-							Version:  "5.0.4",
+							version:  &version,
 							Arch:     "x86_64",
 							Platform: "linux",
 							OSName:   "ubuntu2004",
@@ -116,7 +128,7 @@ func TestMakeDownloadSpec(t *testing.T) {
 						linuxId:      "ubuntu",
 						linuxVersion: "18.04",
 						expectedSpec: &DownloadSpec{
-							Version:  "5.0.4",
+							version:  &version,
 							Arch:     "x86_64",
 							Platform: "linux",
 							OSName:   "ubuntu1804",
@@ -126,7 +138,7 @@ func TestMakeDownloadSpec(t *testing.T) {
 						linuxId:      "ubuntu",
 						linuxVersion: "16.04",
 						expectedSpec: &DownloadSpec{
-							Version:  "5.0.4",
+							version:  &version,
 							Arch:     "x86_64",
 							Platform: "linux",
 							OSName:   "ubuntu1604",
@@ -141,7 +153,7 @@ func TestMakeDownloadSpec(t *testing.T) {
 						linuxId:      "debian",
 						linuxVersion: "10",
 						expectedSpec: &DownloadSpec{
-							Version:  "5.0.4",
+							version:  &version,
 							Arch:     "x86_64",
 							Platform: "linux",
 							OSName:   "debian10",
@@ -151,7 +163,7 @@ func TestMakeDownloadSpec(t *testing.T) {
 						linuxId:      "debian",
 						linuxVersion: "9.2",
 						expectedSpec: &DownloadSpec{
-							Version:  "5.0.4",
+							version:  &version,
 							Arch:     "x86_64",
 							Platform: "linux",
 							OSName:   "debian92",
@@ -244,107 +256,6 @@ func TestMakeDownloadSpec(t *testing.T) {
 
 		Reset(func() {
 			goArch = originalGoArch
-		})
-	})
-
-	Convey("Given an invalid MongoDB version", t, func() {
-		Convey("Without periods", func() {
-			version := "version"
-			Convey("Then an error is returned", func() {
-				spec, err := MakeDownloadSpec(version)
-				So(spec, ShouldBeNil)
-				So(err, ShouldBeError)
-				expectedError := &UnsupportedMongoVersionError{
-					version: version,
-					msg:     "MongoDB version number must be in the form x.y.z",
-				}
-				So(err, ShouldResemble, expectedError)
-				So(err, ShouldHaveSameTypeAs, expectedError)
-			})
-		})
-		Convey("With less than 2 periods", func() {
-			version := "1.2"
-			Convey("Then an error is returned", func() {
-				spec, err := MakeDownloadSpec(version)
-				So(spec, ShouldBeNil)
-				So(err, ShouldBeError)
-				expectedError := &UnsupportedMongoVersionError{
-					version: version,
-					msg:     "MongoDB version number must be in the form x.y.z",
-				}
-				So(err, ShouldResemble, expectedError)
-				So(err, ShouldHaveSameTypeAs, expectedError)
-			})
-		})
-		Convey("With more than 2 periods", func() {
-			version := "2.1.0.a"
-			Convey("Then an error is returned", func() {
-				spec, err := MakeDownloadSpec(version)
-				So(spec, ShouldBeNil)
-				So(err, ShouldBeError)
-				expectedError := &UnsupportedMongoVersionError{
-					version: version,
-					msg:     "MongoDB version number must be in the form x.y.z",
-				}
-				So(err, ShouldResemble, expectedError)
-				So(err, ShouldHaveSameTypeAs, expectedError)
-			})
-		})
-		Convey("With an invalid major version", func() {
-			version := "a.1.0"
-			Convey("Then an error is returned", func() {
-				spec, err := MakeDownloadSpec(version)
-				So(spec, ShouldBeNil)
-				So(err, ShouldBeError)
-				expectedError := &UnsupportedMongoVersionError{
-					version: version,
-					msg:     "could not parse major version",
-				}
-				So(err, ShouldResemble, expectedError)
-				So(err, ShouldHaveSameTypeAs, expectedError)
-			})
-		})
-		Convey("With an invalid minor version", func() {
-			version := "4.minor.0"
-			Convey("Then an error is returned", func() {
-				spec, err := MakeDownloadSpec(version)
-				So(spec, ShouldBeNil)
-				So(err, ShouldBeError)
-				expectedError := &UnsupportedMongoVersionError{
-					version: version,
-					msg:     "could not parse minor version",
-				}
-				So(err, ShouldResemble, expectedError)
-				So(err, ShouldHaveSameTypeAs, expectedError)
-			})
-		})
-		Convey("With an invalid patch version", func() {
-			version := "4.7.pp"
-			Convey("Then an error is returned", func() {
-				spec, err := MakeDownloadSpec(version)
-				So(spec, ShouldBeNil)
-				So(err, ShouldBeError)
-				expectedError := &UnsupportedMongoVersionError{
-					version: version,
-					msg:     "could not parse patch version",
-				}
-				So(err, ShouldResemble, expectedError)
-				So(err, ShouldHaveSameTypeAs, expectedError)
-			})
-		})
-		Convey("With a non-supported old version", func() {
-			version := "4.2.15"
-			Convey("Then an error is returned", func() {
-				spec, err := MakeDownloadSpec(version)
-				So(spec, ShouldBeNil)
-				So(err, ShouldBeError)
-				expectedError := &UnsupportedMongoVersionError{
-					version: version,
-					msg:     "only version 4.4 and above are supported",
-				}
-				So(err, ShouldResemble, expectedError)
-				So(err, ShouldHaveSameTypeAs, expectedError)
-			})
 		})
 	})
 }

@@ -13,8 +13,8 @@ import (
 const folderName = "dp-mongodb-in-memory"
 
 // getDownloadUrl returns the mongodb download url for a given version
-var getDownloadUrl = func(version string) (string, error) {
-	spec, err := MakeDownloadSpec(version)
+var getDownloadUrl = func(v Version) (string, error) {
+	spec, err := MakeDownloadSpec(v)
 	if err != nil {
 		return "", err
 	}
@@ -29,8 +29,8 @@ var getEnv = func(key string) string {
 
 // Config keeps the configuration values for downloading and storing the Mongo binary
 type Config struct {
-	// The version we are using
-	version string
+	// The MongoDB version we are using
+	mongoVersion Version
 	// The URL where the required mongodb tarball can be downloaded from
 	mongoUrl string
 	// The path where the mongod executable can be found if previously downloaded
@@ -40,8 +40,13 @@ type Config struct {
 // NewConfig creates the config values for the given version.
 // It will identify the appropriate mongodb artifact
 // and the cache path based on the current OS
-func NewConfig(version string) (*Config, error) {
-	downloadUrl, err := getDownloadUrl(version)
+func NewConfig(mongoVersionStr string) (*Config, error) {
+	version, versionErr := NewVersion(mongoVersionStr)
+	if versionErr != nil {
+		return nil, versionErr
+	}
+
+	downloadUrl, err := getDownloadUrl(*version)
 	if err != nil {
 		return nil, err
 	}
@@ -52,9 +57,9 @@ func NewConfig(version string) (*Config, error) {
 	}
 
 	return &Config{
-		version:   version,
-		mongoUrl:  downloadUrl,
-		cachePath: cachePath,
+		mongoVersion: *version,
+		mongoUrl:     downloadUrl,
+		cachePath:    cachePath,
 	}, nil
 }
 

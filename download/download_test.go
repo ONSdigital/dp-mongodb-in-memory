@@ -45,7 +45,7 @@ func TestGetMongoDB(t *testing.T) {
 			Convey("And the requested url exists", func() {
 				cfg.mongoUrl = ts.URL + validMongodTarball
 				Convey("And the appropriate key was used to sign the package", func() {
-					getMongoPublicKey = func(version string) (afero.File, error) {
+					getMongoPublicKey = func(v Version) (afero.File, error) {
 						return os.Open("testdata/key-correct.asc")
 					}
 					Convey("Then it downloads the tarball and stores the exec file in cache", func() {
@@ -62,7 +62,7 @@ func TestGetMongoDB(t *testing.T) {
 					})
 				})
 				Convey("And the wrong key was used to sign the package", func() {
-					getMongoPublicKey = func(version string) (afero.File, error) {
+					getMongoPublicKey = func(v Version) (afero.File, error) {
 						return os.Open("testdata/key-incorrect.asc")
 					}
 					Convey("Then an error is returned", func() {

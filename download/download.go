@@ -237,7 +237,7 @@ func verifyChecksum(mongoFile string, cfg Config) error {
 
 func verifySignature(mongoFilename string, cfg Config) error {
 	// Get public key
-	keyFile, err := getMongoPublicKey(cfg.version)
+	keyFile, err := getMongoPublicKey(cfg.mongoVersion)
 	if err != nil {
 		return err
 	}
@@ -284,11 +284,8 @@ func verifySignature(mongoFilename string, cfg Config) error {
 	return nil
 }
 
-var getMongoPublicKey = func(version string) (afero.File, error) {
-	versionSplit := strings.Split(version, ".")
-	majorVersion := versionSplit[0]
-	minorVersion := versionSplit[1]
-	keyUrl := fmt.Sprintf("https://www.mongodb.org/static/pgp/server-%s.%s.asc", majorVersion, minorVersion)
+var getMongoPublicKey = func(version Version) (afero.File, error) {
+	keyUrl := fmt.Sprintf("https://www.mongodb.org/static/pgp/server-%d.%d.asc", version.Major, version.Minor)
 
 	keyFile, err := downloadFile(keyUrl)
 	if err != nil {

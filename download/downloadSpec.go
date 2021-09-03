@@ -20,7 +20,7 @@ var getOsReleaseContent = func() (map[string]string, error) {
 // DownloadSpec specifies what copy of MongoDB to download
 type DownloadSpec struct {
 	// Version is what version of MongoDB to download
-	Version string
+	version *Version
 
 	// Platform is "osx" or "linux"
 	Platform string
@@ -39,15 +39,10 @@ type DownloadSpec struct {
 }
 
 // MakeDownloadSpec returns a DownloadSpec for the current operating system
-func MakeDownloadSpec(version string) (*DownloadSpec, error) {
-	parsedVersion, versionErr := parseVersion(version)
-	if versionErr != nil {
-		return nil, versionErr
-	}
-
-	if !versionGTE(parsedVersion, []int{4, 4, 0}) {
+func MakeDownloadSpec(version Version) (*DownloadSpec, error) {
+	if !version.IsGreaterOrEqual(4, 4, 0) {
 		return nil, &UnsupportedMongoVersionError{
-			version: version,
+			version: version.String(),
 			msg:     "only version 4.4 and above are supported",
 		}
 	}
@@ -62,13 +57,13 @@ func MakeDownloadSpec(version string) (*DownloadSpec, error) {
 		return nil, platformErr
 	}
 
-	osName, osErr := detectLinuxId(parsedVersion)
+	osName, osErr := detectLinuxId()
 	if osErr != nil {
 		return nil, osErr
 	}
 
 	return &DownloadSpec{
-		Version:  version,
+		version:  &version,
 		Arch:     arch,
 		Platform: platform,
 		OSName:   osName,
@@ -96,66 +91,13 @@ func (spec *DownloadSpec) GetDownloadURL() (string, error) {
 		"https://fastdl.mongodb.org/%s/%s-%s.tgz",
 		spec.Platform,
 		archiveName,
-		spec.Version,
+		spec.Version(),
 	), nil
 }
 
-// parseVersion a version string into an array [major, minor, patch].
-func parseVersion(version string) ([]int, error) {
-	versionParts := strings.Split(version, ".")
-	if len(versionParts) != 3 {
-		return nil, &UnsupportedMongoVersionError{
-			version: version,
-			msg:     "MongoDB version number must be in the form x.y.z",
-		}
-	}
-
-	majorVersion, majErr := strconv.Atoi(versionParts[0])
-	if majErr != nil {
-		return nil, &UnsupportedMongoVersionError{
-			version: version,
-			msg:     "could not parse major version",
-		}
-	}
-
-	minorVersion, minErr := strconv.Atoi(versionParts[1])
-	if minErr != nil {
-		return nil, &UnsupportedMongoVersionError{
-			version: version,
-			msg:     "could not parse minor version",
-		}
-	}
-
-	patchVersion, patchErr := strconv.Atoi(versionParts[2])
-	if patchErr != nil {
-		return nil, &UnsupportedMongoVersionError{
-			version: version,
-			msg:     "could not parse patch version",
-		}
-	}
-
-	return []int{majorVersion, minorVersion, patchVersion}, nil
-}
-
-// versionGTE checks if a version is greater or equal than another version
-func versionGTE(a []int, b []int) bool {
-	if a[0] > b[0] {
-		return true
-	}
-
-	if a[0] < b[0] {
-		return false
-	}
-
-	if a[1] > b[1] {
-		return true
-	}
-
-	if a[1] < b[1] {
-		return false
-	}
-
-	return a[2] >= b[2]
+// Version returns the MongoDb version
+func (spec *DownloadSpec) Version() string {
+	return spec.version.String()
 }
 
 func detectPlatform() (string, error) {
@@ -178,7 +120,7 @@ func detectArch() (string, error) {
 	}
 }
 
-func detectLinuxId(mongoVersion []int) (string, error) {
+func detectLinuxId() (string, error) {
 	if goOS != "linux" {
 		// Not on Linux
 		return "", nil
