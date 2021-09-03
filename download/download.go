@@ -15,6 +15,7 @@ import (
 
 	"github.com/ONSdigital/log.go/v2/log"
 	"github.com/spf13/afero"
+	"golang.org/x/crypto/openpgp"
 )
 
 var afs = afero.Afero{Fs: afero.NewOsFs()}
@@ -87,7 +88,7 @@ func downloadMongoDB(cfg Config) error {
 }
 
 // downloadFile downloads the file from the given url and stores it in a temporary file.
-// It returns the path to the temporary file where it has been downloaded
+// It returns the temporary file where it has been downloaded
 func downloadFile(urlStr string) (afero.File, error) {
 	log.Info(context.Background(), "Downloading file", log.Data{"url": urlStr})
 
@@ -111,6 +112,13 @@ func downloadFile(urlStr string) (afero.File, error) {
 		_ = tgzTempFile.Close()
 		_ = afs.Remove(tgzTempFile.Name())
 		return nil, copyErr
+	}
+
+	tgzTempFile, err := afs.Open(tgzTempFile.Name())
+	if err != nil {
+		_ = tgzTempFile.Close()
+		_ = afs.Remove(tgzTempFile.Name())
+		return nil, err
 	}
 
 	log.Info(context.Background(), "Downloaded to temp file", log.Data{"file": tgzTempFile.Name(), "url": urlStr})
@@ -178,9 +186,23 @@ func extractMongoBin(tgzTempFile afero.File) (string, error) {
 }
 
 // verify checks the integrity of the mongoFile.
-// It uses the config file to download the checksum file
-// and compares its value against the actual mongoFile checksum
+// It uses the config file to download the checksum and signature files
+// and compares their value against the actual mongoFile checksum and GPG signature
 func verify(mongoFile string, cfg Config) error {
+	if err := verifyChecksum(mongoFile, cfg); err != nil {
+		return err
+	}
+	log.Info(context.Background(), "checksum verified successfully", log.Data{"url": cfg.mongoChecksumUrl()})
+
+	if err := verifySignature(mongoFile, cfg); err != nil {
+		return err
+	}
+	log.Info(context.Background(), "signature verified successfully", log.Data{"url": cfg.mongoSignatureUrl()})
+
+	return nil
+}
+
+func verifyChecksum(mongoFile string, cfg Config) error {
 
 	checksumFile, downloadErr := downloadFile(cfg.mongoChecksumUrl())
 	if downloadErr != nil {
@@ -211,6 +233,69 @@ func verify(mongoFile string, cfg Config) error {
 		return fmt.Errorf("checksum verification failed")
 	}
 	return nil
+}
+
+func verifySignature(mongoFilename string, cfg Config) error {
+	// Get public key
+	keyFile, err := getMongoPublicKey(cfg.version)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		_ = keyFile.Close()
+		_ = afs.Remove(keyFile.Name())
+	}()
+
+	keyring, err := openpgp.ReadArmoredKeyRing(keyFile)
+	if err != nil {
+		log.Error(context.Background(), "error reading keyring file", err)
+		return err
+	}
+
+	// Get signature
+	signatureFile, err := downloadFile(cfg.mongoSignatureUrl())
+	if err != nil {
+		log.Error(context.Background(), "error downloading signature file", err, log.Data{"url": cfg.mongoSignatureUrl()})
+		return err
+	}
+
+	defer func() {
+		_ = signatureFile.Close()
+		_ = afs.Remove(signatureFile.Name())
+	}()
+
+	// Get file to verify
+	mongoFile, err := afs.Open(mongoFilename)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		_ = mongoFile.Close()
+	}()
+
+	// Verify signature
+	_, err = openpgp.CheckArmoredDetachedSignature(keyring, mongoFile, signatureFile)
+	if err != nil {
+		return fmt.Errorf("signature verification failed")
+	}
+
+	return nil
+}
+
+var getMongoPublicKey = func(version string) (afero.File, error) {
+	versionSplit := strings.Split(version, ".")
+	majorVersion := versionSplit[0]
+	minorVersion := versionSplit[1]
+	keyUrl := fmt.Sprintf("https://www.mongodb.org/static/pgp/server-%s.%s.asc", majorVersion, minorVersion)
+
+	keyFile, err := downloadFile(keyUrl)
+	if err != nil {
+		log.Error(context.Background(), "error downloading Mongo public key", err, log.Data{"url": keyUrl})
+		return nil, err
+	}
+	return keyFile, nil
 }
 
 // sha256Sum returns the SHA256 checksum of the file

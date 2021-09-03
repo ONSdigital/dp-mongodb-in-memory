@@ -44,17 +44,32 @@ func TestGetMongoDB(t *testing.T) {
 			afs.Remove(cfg.cachePath)
 			Convey("And the requested url exists", func() {
 				cfg.mongoUrl = ts.URL + validMongodTarball
-				Convey("Then it downloads the tarball and stores the exec file in cache", func() {
-					startTime := time.Now()
+				Convey("And the appropriate key was used to sign the pacakge", func() {
+					getMongoPublicKey = func(version string) (afero.File, error) {
+						return os.Open("testdata/key-correct.asc")
+					}
+					Convey("Then it downloads the tarball and stores the exec file in cache", func() {
+						startTime := time.Now()
 
-					err := GetMongoDB(*cfg)
-					So(err, ShouldBeNil)
+						err := GetMongoDB(*cfg)
+						So(err, ShouldBeNil)
 
-					stat, err := afs.Stat(cfg.cachePath)
-					So(err, ShouldBeNil)
-					So(stat.Size(), ShouldBeGreaterThan, 0)
-					So(stat.Mode()&0100, ShouldNotBeZeroValue)
-					So(stat.ModTime(), ShouldHappenBetween, startTime, time.Now())
+						stat, err := afs.Stat(cfg.cachePath)
+						So(err, ShouldBeNil)
+						So(stat.Size(), ShouldBeGreaterThan, 0)
+						So(stat.Mode()&0100, ShouldNotBeZeroValue)
+						So(stat.ModTime(), ShouldHappenBetween, startTime, time.Now())
+					})
+				})
+				Convey("And the wrong key was used to sign the pacakge", func() {
+					getMongoPublicKey = func(version string) (afero.File, error) {
+						return os.Open("testdata/key-incorrect.asc")
+					}
+					Convey("Then an error is returned", func() {
+						err := GetMongoDB(*cfg)
+						So(err, ShouldBeError)
+						So(err.Error(), ShouldEqual, "signature verification failed")
+					})
 				})
 			})
 			Convey("And the requested url can not be found", func() {

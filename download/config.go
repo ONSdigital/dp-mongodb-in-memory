@@ -29,7 +29,9 @@ var getEnv = func(key string) string {
 
 // Config keeps the configuration values for downloading and storing the Mongo binary
 type Config struct {
-	//The URL where the required mongodb tarball can be downloaded from
+	// The version we are using
+	version string
+	// The URL where the required mongodb tarball can be downloaded from
 	mongoUrl string
 	// The path where the mongod executable can be found if previously downloaded
 	cachePath string
@@ -50,6 +52,7 @@ func NewConfig(version string) (*Config, error) {
 	}
 
 	return &Config{
+		version:   version,
 		mongoUrl:  downloadUrl,
 		cachePath: cachePath,
 	}, nil
