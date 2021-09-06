@@ -44,7 +44,7 @@ func TestGetMongoDB(t *testing.T) {
 			afs.Remove(cfg.cachePath)
 			Convey("And the requested url exists", func() {
 				cfg.mongoUrl = ts.URL + validMongodTarball
-				Convey("And the appropriate key was used to sign the pacakge", func() {
+				Convey("And the appropriate key was used to sign the package", func() {
 					getMongoPublicKey = func(version string) (afero.File, error) {
 						return os.Open("testdata/key-correct.asc")
 					}
@@ -61,7 +61,7 @@ func TestGetMongoDB(t *testing.T) {
 						So(stat.ModTime(), ShouldHappenBetween, startTime, time.Now())
 					})
 				})
-				Convey("And the wrong key was used to sign the pacakge", func() {
+				Convey("And the wrong key was used to sign the package", func() {
 					getMongoPublicKey = func(version string) (afero.File, error) {
 						return os.Open("testdata/key-incorrect.asc")
 					}
