@@ -1,21 +1,21 @@
 package download
 
 import (
+	"bufio"
+	"context"
 	"fmt"
+	"io"
 	"runtime"
 	"strconv"
 	"strings"
 
-	"github.com/acobaugh/osrelease"
+	"github.com/ONSdigital/log.go/v2/log"
 )
 
 // We define these as package vars so we can override it in tests
 
 var goOS = runtime.GOOS
 var goArch = runtime.GOARCH
-var getOsReleaseContent = func() (map[string]string, error) {
-	return osrelease.ReadFile("/etc/os-release")
-}
 
 // DownloadSpec specifies what copy of MongoDB to download
 type DownloadSpec struct {
@@ -126,7 +126,14 @@ func detectLinuxId() (string, error) {
 		return "", nil
 	}
 
-	osRelease, osReleaseErr := getOsReleaseContent()
+	osreleaseFile, err := afs.Open("/etc/os-release")
+	if err != nil {
+		log.Error(context.Background(), "error reading /etc/os-release file", err)
+		return "", err
+	}
+	defer osreleaseFile.Close()
+
+	osRelease, osReleaseErr := readKeyValuePairs(osreleaseFile)
 	if osReleaseErr != nil {
 		return "", osReleaseErr
 	}
@@ -160,4 +167,37 @@ func detectLinuxId() (string, error) {
 	default:
 		return "", &UnsupportedSystemError{msg: "invalid linux version '" + id + "'"}
 	}
+}
+
+func readKeyValuePairs(r io.Reader) (content map[string]string, err error) {
+	content = make(map[string]string)
+
+	scanner := bufio.NewScanner(r)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		if len(line) > 0 &&
+			!strings.HasPrefix(line, "#") &&
+			strings.Contains(line, "=") {
+			// Skip empty lines, comments and malformed lines
+
+			s := strings.Split(line, "=")
+			key := strings.Trim(s[0], " ")
+			key = strings.Trim(key, `"`)
+			key = strings.Trim(key, `'`)
+
+			value := strings.Trim(s[1], " ")
+			value = strings.Trim(value, `"`)
+			value = strings.Trim(value, `'`)
+			// expand anything else that could be escaped
+			value = strings.Replace(value, `\"`, `"`, -1)
+			value = strings.Replace(value, `\$`, `$`, -1)
+			value = strings.Replace(value, `\\`, `\`, -1)
+			value = strings.Replace(value, "\\`", "`", -1)
+
+			content[key] = value
+		}
+	}
+	return content, scanner.Err()
 }

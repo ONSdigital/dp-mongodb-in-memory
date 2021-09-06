@@ -2,9 +2,11 @@ package download
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
+	"github.com/spf13/afero"
 )
 
 func TestGetDownloadURL(t *testing.T) {
@@ -67,6 +69,9 @@ func TestGetDownloadURL(t *testing.T) {
 func TestMakeDownloadSpec(t *testing.T) {
 	var originalGoOs = goOS
 	var originalGoArch = goArch
+
+	// Use a memory backed filesystem (no persistence)
+	afs = afero.Afero{Fs: afero.NewMemMapFs()}
 
 	Convey("Given a valid MongoDB version", t, func() {
 		version := Version{
@@ -187,12 +192,10 @@ func TestMakeDownloadSpec(t *testing.T) {
 				}
 				for name, tc := range tests {
 					Convey(name, func() {
-						getOsReleaseContent = func() (map[string]string, error) {
-							return map[string]string{
-								"ID":         tc.linuxId,
-								"VERSION_ID": tc.linuxVersion,
-							}, nil
-						}
+						osrelease := fmt.Sprintf("ID=%s\nVERSION_ID=%s\n", tc.linuxId, tc.linuxVersion)
+						// We are using a memory backed file system
+						// and this will not affect a real file if it existed
+						afs.WriteFile("/etc/os-release", []byte(osrelease), 0744)
 						Convey("Then the returned spec is correct", func() {
 							spec, err := MakeDownloadSpec(version)
 							if tc.expectedErr != nil {
@@ -213,13 +216,13 @@ func TestMakeDownloadSpec(t *testing.T) {
 				}
 
 				Convey("When there is an error reading the os-release file", func() {
-					expectedErr := errors.New("could not read file")
-					getOsReleaseContent = func() (map[string]string, error) {
-						return nil, expectedErr
-					}
+					// We are using a memory backed file system
+					// and this will not affect a real file if it existed
+					afs.Remove("/etc/os-release")
+
 					Convey("Then an error is returned", func() {
 						spec, err := MakeDownloadSpec(version)
-						So(err, ShouldEqual, expectedErr)
+						So(err, ShouldBeError)
 						So(spec, ShouldBeNil)
 					})
 				})
