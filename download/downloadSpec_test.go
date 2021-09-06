@@ -195,7 +195,7 @@ func TestMakeDownloadSpec(t *testing.T) {
 						osrelease := fmt.Sprintf("ID=%s\nVERSION_ID=%s\n", tc.linuxId, tc.linuxVersion)
 						// We are using a memory backed file system
 						// and this will not affect a real file if it existed
-						afs.WriteFile("/etc/os-release", []byte(osrelease), 0744)
+						afs.WriteFile(etcOsReleaseFileName, []byte(osrelease), 0744)
 						Convey("Then the returned spec is correct", func() {
 							spec, err := MakeDownloadSpec(version)
 							if tc.expectedErr != nil {
@@ -218,7 +218,7 @@ func TestMakeDownloadSpec(t *testing.T) {
 				Convey("When there is an error reading the os-release file", func() {
 					// We are using a memory backed file system
 					// and this will not affect a real file if it existed
-					afs.Remove("/etc/os-release")
+					afs.Remove(etcOsReleaseFileName)
 
 					Convey("Then an error is returned", func() {
 						spec, err := MakeDownloadSpec(version)

@@ -12,6 +12,8 @@ import (
 	"github.com/ONSdigital/log.go/v2/log"
 )
 
+const etcOsReleaseFileName = "/etc/os-release"
+
 // We define these as package vars so we can override it in tests
 
 var goOS = runtime.GOOS
@@ -126,9 +128,9 @@ func detectLinuxId() (string, error) {
 		return "", nil
 	}
 
-	osreleaseFile, err := afs.Open("/etc/os-release")
+	osreleaseFile, err := afs.Open(etcOsReleaseFileName)
 	if err != nil {
-		log.Error(context.Background(), "error reading /etc/os-release file", err)
+		log.Error(context.Background(), "error reading "+etcOsReleaseFileName+" file", err)
 		return "", err
 	}
 	defer osreleaseFile.Close()
@@ -169,8 +171,8 @@ func detectLinuxId() (string, error) {
 	}
 }
 
-func readKeyValuePairs(r io.Reader) (content map[string]string, err error) {
-	content = make(map[string]string)
+func readKeyValuePairs(r io.Reader) (map[string]string, error) {
+	content := make(map[string]string)
 
 	scanner := bufio.NewScanner(r)
 
