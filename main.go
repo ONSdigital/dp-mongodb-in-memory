@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"os"
@@ -50,6 +53,9 @@ func Start(version string) (*Server, error) {
 
 	log.Info(context.Background(), "Starting mongod server", log.Data{"binPath": binPath, "dbDir": dbDir, "port": port})
 	cmd := exec.Command(binPath, "--storageEngine", "ephemeralForTest", "--dbpath", dbDir, "--port", strconv.Itoa(port))
+
+	cmd.Stderr = stdHandler()
+	cmd.Stdout = cmd.Stderr
 
 	// Run the server
 	err = cmd.Start()
@@ -144,4 +150,25 @@ func getFreePort() (int, error) {
 	}
 	defer l.Close()
 	return l.Addr().(*net.TCPAddr).Port, nil
+}
+
+// stdHandler handler just relays messages from stdout/stderr to our logger
+func stdHandler() io.Writer {
+	reader, writer := io.Pipe()
+
+	go func() {
+		scanner := bufio.NewScanner(reader)
+
+		for scanner.Scan() {
+			var jsonError log.Data
+			json.Unmarshal([]byte(scanner.Text()), &jsonError)
+			log.Info(context.Background(), fmt.Sprintf("[mongod] %s", jsonError["msg"]), jsonError)
+		}
+
+		if err := scanner.Err(); err != nil {
+			log.Error(context.Background(), "reading mongod stdout/stderr failed: %s", err)
+		}
+	}()
+
+	return writer
 }
