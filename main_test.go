@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strconv"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
@@ -23,38 +22,38 @@ func TestStart(t *testing.T) {
 
 				Convey("Then no error is returned", func() {
 					So(err, ShouldBeNil)
-				})
-				Convey("And the mongod process has run", func() {
-					So(server, ShouldNotBeNil)
-					So(server.cmd, ShouldNotBeNil)
-					So(server.dbDir, ShouldNotBeBlank)
-					So(server.port, ShouldNotBeEmpty)
-					So(server.cmd.Args[0], ShouldEndWith, "mongod")
-					So(server.cmd.Args[1], ShouldEqual, "--storageEngine")
-					So(server.cmd.Args[2], ShouldEqual, "ephemeralForTest")
-					So(server.cmd.Args[3], ShouldEqual, "--dbpath")
-					So(server.cmd.Args[4], ShouldEqual, server.dbDir)
-					So(server.cmd.Args[5], ShouldEqual, "--port")
-					So(server.cmd.Args[6], ShouldEqual, strconv.Itoa(server.port))
-				})
-				Convey("And the watcher process has run", func() {
-					expectedScript := fmt.Sprintf("while ps -o pid= -p %d; "+
-						"do sleep 1; "+
-						"done; "+
-						"kill -9 %d",
-						os.Getpid(), server.cmd.Process.Pid)
+					Convey("And the mongod process has run", func() {
+						So(server, ShouldNotBeNil)
+						So(server.cmd, ShouldNotBeNil)
+						So(server.dbDir, ShouldNotBeBlank)
+						So(server.port, ShouldNotBeEmpty)
+						So(server.cmd.Args[0], ShouldEndWith, "mongod")
+						So(server.cmd.Args[1], ShouldEqual, "--storageEngine")
+						So(server.cmd.Args[2], ShouldEqual, "ephemeralForTest")
+						So(server.cmd.Args[3], ShouldEqual, "--dbpath")
+						So(server.cmd.Args[4], ShouldEqual, server.dbDir)
+						So(server.cmd.Args[5], ShouldEqual, "--port")
+						So(server.cmd.Args[6], ShouldEqual, "0")
+					})
+					Convey("And the watcher process has run", func() {
+						expectedScript := fmt.Sprintf("while ps -o pid= -p %d; "+
+							"do sleep 1; "+
+							"done; "+
+							"kill -9 %d",
+							os.Getpid(), server.cmd.Process.Pid)
 
-					So(server, ShouldNotBeNil)
-					So(server.watcherCmd, ShouldNotBeNil)
-					So(server.watcherCmd.Args[0], ShouldEndWith, "/bin/sh")
-					So(server.watcherCmd.Args[1], ShouldEqual, "-c")
-					So(server.watcherCmd.Args[2], ShouldEqual, expectedScript)
-				})
-				Convey("And the server accepts connections", func() {
-					client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(server.URI()))
-					So(err, ShouldBeNil)
-					So(client, ShouldNotBeNil)
-					So(client.Ping(context.Background(), nil), ShouldBeNil)
+						So(server, ShouldNotBeNil)
+						So(server.watcherCmd, ShouldNotBeNil)
+						So(server.watcherCmd.Args[0], ShouldEndWith, "/bin/sh")
+						So(server.watcherCmd.Args[1], ShouldEqual, "-c")
+						So(server.watcherCmd.Args[2], ShouldEqual, expectedScript)
+					})
+					Convey("And the server accepts connections", func() {
+						client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(server.URI()))
+						So(err, ShouldBeNil)
+						So(client, ShouldNotBeNil)
+						So(client.Ping(context.Background(), nil), ShouldBeNil)
+					})
 				})
 			})
 		})
