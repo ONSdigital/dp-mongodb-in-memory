@@ -51,6 +51,7 @@ func Start(version string) (*Server, error) {
 	}
 
 	log.Info(context.Background(), "Starting mongod server", log.Data{"binPath": binPath, "dbDir": server.dbDir})
+	// By specifying port 0, mongo will find and use an available port
 	server.cmd = exec.Command(binPath, "--storageEngine", "ephemeralForTest", "--dbpath", server.dbDir, "--port", "0")
 
 	startupErrCh := make(chan error)
@@ -148,21 +149,26 @@ func stdHandler(okCh chan<- int, errCh chan<- error) io.Writer {
 		scanner := bufio.NewScanner(reader)
 
 		for scanner.Scan() {
+			text := scanner.Text()
 			var logMessage log.Data
-			json.Unmarshal([]byte(scanner.Text()), &logMessage)
+			err := json.Unmarshal([]byte(text), &logMessage)
+			if err != nil {
+				// Output the message as is if not json
+				log.Info(context.Background(), fmt.Sprintf("[mongod] %s", text))
+			} else {
+				message := logMessage["msg"]
+				severity := logMessage["s"]
+				if severity == "E" || severity == "F" {
+					// error or fatal
+					errCh <- fmt.Errorf("Mongod startup failed: %s", message)
+				} else if severity == "I" && message == "Waiting for connections" {
+					// Mongo running successfully: find port
+					attr := logMessage["attr"].(map[string]interface{})
+					okCh <- int(attr["port"].(float64))
+				}
 
-			message := logMessage["msg"]
-			severity := logMessage["s"]
-			if severity == "E" || severity == "F" {
-				// error or fatal
-				errCh <- errors.New(fmt.Sprintf("Mongod startup failed: %s", message))
-			} else if severity == "I" && message == "Waiting for connections" {
-				// Mongo running successfully: find port
-				attr := logMessage["attr"].(map[string]interface{})
-				okCh <- int(attr["port"].(float64))
+				log.Info(context.Background(), fmt.Sprintf("[mongod] %s", message), logMessage)
 			}
-
-			log.Info(context.Background(), fmt.Sprintf("[mongod] %s", message), logMessage)
 		}
 
 		if err := scanner.Err(); err != nil {
