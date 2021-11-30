@@ -1,5 +1,6 @@
 # dp-mongodb-in-memory
 Library that runs an in-memory MongoDB instance for Go unit tests.
+It's based on [memongo](https://github.com/benweissmann/memongo).
 
 ## How it works
 - It detects your operating system and platform to determine the download URL for the right MongoDB binary.
@@ -21,7 +22,6 @@ The supported MongoDB versions are 4.4 and above.
 ### Cache location
 
 The downloaded mongodb binary will be stored in a local cache: a folder named `dp-mongodb-in-memory` living on the machine base cache directory. That is `$XDG_CACHE_HOME` if such environment variable is set or `~/.cache` (Linux) and `~/Library/Caches` (MacOS) if not.
-
 
 ## Installation
 
@@ -72,7 +72,5 @@ func TestExample(t *testing.T) {
 See [CONTRIBUTING](CONTRIBUTING.md) for details.
 
 ## License
-
-Copyright © 2021, Office for National Statistics (https://www.ons.gov.uk)
 
 Released under MIT license, see [LICENSE](LICENSE.md) for details.

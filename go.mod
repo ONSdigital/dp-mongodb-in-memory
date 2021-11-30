@@ -32,3 +32,6 @@ require (
 	golang.org/x/sys v0.0.0-20210414055047-fe65e336abe0 // indirect
 	golang.org/x/text v0.3.5 // indirect
 )
+
+//Licensing error DO NOT USE
+retract v1.0.0
