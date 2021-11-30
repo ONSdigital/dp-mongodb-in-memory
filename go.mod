@@ -6,8 +6,8 @@ require (
 	github.com/ONSdigital/log.go/v2 v2.0.6
 	github.com/smartystreets/goconvey v1.6.4
 	github.com/spf13/afero v1.6.0
-	go.mongodb.org/mongo-driver v1.7.1
-	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
+	go.mongodb.org/mongo-driver v1.8.0
+	golang.org/x/crypto v0.0.0-20201216223049-8b5274cf687f
 )
 
 require (
@@ -19,7 +19,7 @@ require (
 	github.com/gopherjs/gopherjs v0.0.0-20181017120253-0766667cb4d1 // indirect
 	github.com/hokaccha/go-prettyjson v0.0.0-20210113012101-fb4e108d2519 // indirect
 	github.com/jtolds/gls v4.20.0+incompatible // indirect
-	github.com/klauspost/compress v1.9.5 // indirect
+	github.com/klauspost/compress v1.13.6 // indirect
 	github.com/mattn/go-colorable v0.1.8 // indirect
 	github.com/mattn/go-isatty v0.0.12 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
