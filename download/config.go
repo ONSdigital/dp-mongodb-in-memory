@@ -40,7 +40,7 @@ type Config struct {
 // NewConfig creates the config values for the given version.
 // It will identify the appropriate mongodb artifact
 // and the cache path based on the current OS
-func NewConfig(mongoVersionStr string) (*Config, error) {
+func NewConfig(ctx context.Context, mongoVersionStr string) (*Config, error) {
 	version, versionErr := NewVersion(mongoVersionStr)
 	if versionErr != nil {
 		return nil, versionErr
@@ -51,7 +51,7 @@ func NewConfig(mongoVersionStr string) (*Config, error) {
 		return nil, err
 	}
 
-	cachePath, err := buildBinCachePath(downloadUrl)
+	cachePath, err := buildBinCachePath(ctx, downloadUrl)
 	if err != nil {
 		return nil, err
 	}
@@ -64,16 +64,16 @@ func NewConfig(mongoVersionStr string) (*Config, error) {
 }
 
 // buildBinCachePath returns the full path to where the mongod binary should be located.
-func buildBinCachePath(downloadUrl string) (string, error) {
+func buildBinCachePath(ctx context.Context, downloadUrl string) (string, error) {
 	cacheHome, err := defaultBaseCachePath()
 	if err != nil {
-		log.Error(context.Background(), "cache directory not found", err)
+		log.Error(ctx, "cache directory not found", err)
 		return "", err
 	}
 
 	urlParsed, err := url.Parse(downloadUrl)
 	if err != nil {
-		log.Error(context.Background(), "error parsing url", err, log.Data{"url": downloadUrl})
+		log.Error(ctx, "error parsing url", err, log.Data{"url": downloadUrl})
 		return "", err
 	}
 

@@ -1,6 +1,7 @@
 package download
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -20,6 +21,8 @@ func TestGetMongoDB(t *testing.T) {
 		notTarball           = "/test"
 		corrupted            = "/corrupted"
 	)
+
+	var testCtx context.Context
 
 	// Use a memory backed filesystem (no persistence)
 	afs = afero.Afero{Fs: afero.NewMemMapFs()}
@@ -45,13 +48,13 @@ func TestGetMongoDB(t *testing.T) {
 			Convey("And the requested url exists", func() {
 				cfg.mongoUrl = ts.URL + validMongodTarball
 				Convey("And the appropriate key was used to sign the package", func() {
-					getMongoPublicKey = func(v Version) (afero.File, error) {
+					getMongoPublicKey = func(ctx context.Context, v Version) (afero.File, error) {
 						return os.Open("testdata/key-correct.asc")
 					}
 					Convey("Then it downloads the tarball and stores the exec file in cache", func() {
 						startTime := time.Now()
 
-						err := GetMongoDB(*cfg)
+						err := GetMongoDB(testCtx, *cfg)
 						So(err, ShouldBeNil)
 
 						stat, err := afs.Stat(cfg.cachePath)
@@ -62,11 +65,11 @@ func TestGetMongoDB(t *testing.T) {
 					})
 				})
 				Convey("And the wrong key was used to sign the package", func() {
-					getMongoPublicKey = func(v Version) (afero.File, error) {
+					getMongoPublicKey = func(ctx context.Context, v Version) (afero.File, error) {
 						return os.Open("testdata/key-incorrect.asc")
 					}
 					Convey("Then an error is returned", func() {
-						err := GetMongoDB(*cfg)
+						err := GetMongoDB(testCtx, *cfg)
 						So(err, ShouldBeError)
 						So(err.Error(), ShouldEqual, "signature verification failed")
 					})
@@ -75,7 +78,7 @@ func TestGetMongoDB(t *testing.T) {
 			Convey("And the requested url can not be found", func() {
 				cfg.mongoUrl = ts.URL + "/invalid"
 				Convey("Then an error is returned", func() {
-					err := GetMongoDB(*cfg)
+					err := GetMongoDB(testCtx, *cfg)
 					So(err, ShouldBeError)
 					So(err.Error(), ShouldEqual, "invalid status code 404")
 				})
@@ -83,7 +86,7 @@ func TestGetMongoDB(t *testing.T) {
 			Convey("And the requested file's checksum can not be verified", func() {
 				cfg.mongoUrl = ts.URL + corrupted
 				Convey("Then an error is returned", func() {
-					err := GetMongoDB(*cfg)
+					err := GetMongoDB(testCtx, *cfg)
 					So(err, ShouldBeError)
 					So(err.Error(), ShouldEqual, "checksum verification failed")
 				})
@@ -91,14 +94,14 @@ func TestGetMongoDB(t *testing.T) {
 			Convey("And the requested url is not a tarball", func() {
 				cfg.mongoUrl = ts.URL + notTarball
 				Convey("Then an error is returned", func() {
-					err := GetMongoDB(*cfg)
+					err := GetMongoDB(testCtx, *cfg)
 					So(err, ShouldBeError)
 				})
 			})
 			Convey("And the requested url is a tarball not containing a mongod file", func() {
 				cfg.mongoUrl = ts.URL + invalidMongodTarball
 				Convey("Then an error is returned", func() {
-					err := GetMongoDB(*cfg)
+					err := GetMongoDB(testCtx, *cfg)
 					So(err, ShouldBeError)
 				})
 			})
@@ -110,7 +113,7 @@ func TestGetMongoDB(t *testing.T) {
 			Convey("Then it uses the file in cache and it does not download it again", func() {
 				cfg.mongoUrl = ts.URL + "/should-not-be-called"
 
-				err := GetMongoDB(*cfg)
+				err := GetMongoDB(testCtx, *cfg)
 				So(err, ShouldBeNil)
 			})
 		})
