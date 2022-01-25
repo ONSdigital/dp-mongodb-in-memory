@@ -1,6 +1,7 @@
 package download
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -11,12 +12,13 @@ func TestNewConfig(t *testing.T) {
 	var originalGetDownloadUrl = getDownloadUrl
 	var originalGetEnv = getEnv
 	var originalGoOs = goOS
+	testCtx := context.Background()
 
 	Convey("Given an invalid MongoDB version", t, func() {
 		Convey("Without periods", func() {
 			version := "version"
 			Convey("Then an error is returned", func() {
-				cfg, err := NewConfig(version)
+				cfg, err := NewConfig(testCtx, version)
 				So(cfg, ShouldBeNil)
 				So(err, ShouldBeError)
 				expectedError := &UnsupportedMongoVersionError{
@@ -30,7 +32,7 @@ func TestNewConfig(t *testing.T) {
 		Convey("With less than 2 periods", func() {
 			version := "1.2"
 			Convey("Then an error is returned", func() {
-				cfg, err := NewConfig(version)
+				cfg, err := NewConfig(testCtx, version)
 				So(cfg, ShouldBeNil)
 				So(err, ShouldBeError)
 				expectedError := &UnsupportedMongoVersionError{
@@ -44,7 +46,7 @@ func TestNewConfig(t *testing.T) {
 		Convey("With more than 2 periods", func() {
 			version := "2.1.0.a"
 			Convey("Then an error is returned", func() {
-				cfg, err := NewConfig(version)
+				cfg, err := NewConfig(testCtx, version)
 				So(cfg, ShouldBeNil)
 				So(err, ShouldBeError)
 				expectedError := &UnsupportedMongoVersionError{
@@ -58,7 +60,7 @@ func TestNewConfig(t *testing.T) {
 		Convey("With an invalid major version", func() {
 			version := "a.1.0"
 			Convey("Then an error is returned", func() {
-				cfg, err := NewConfig(version)
+				cfg, err := NewConfig(testCtx, version)
 				So(cfg, ShouldBeNil)
 				So(err, ShouldBeError)
 				expectedError := &UnsupportedMongoVersionError{
@@ -72,7 +74,7 @@ func TestNewConfig(t *testing.T) {
 		Convey("With an invalid minor version", func() {
 			version := "4.minor.0"
 			Convey("Then an error is returned", func() {
-				cfg, err := NewConfig(version)
+				cfg, err := NewConfig(testCtx, version)
 				So(cfg, ShouldBeNil)
 				So(err, ShouldBeError)
 				expectedError := &UnsupportedMongoVersionError{
@@ -86,7 +88,7 @@ func TestNewConfig(t *testing.T) {
 		Convey("With an invalid patch version", func() {
 			version := "4.7.pp"
 			Convey("Then an error is returned", func() {
-				cfg, err := NewConfig(version)
+				cfg, err := NewConfig(testCtx, version)
 				So(cfg, ShouldBeNil)
 				So(err, ShouldBeError)
 				expectedError := &UnsupportedMongoVersionError{
@@ -100,7 +102,7 @@ func TestNewConfig(t *testing.T) {
 		Convey("With a non-supported old version", func() {
 			version := "4.2.15"
 			Convey("Then an error is returned", func() {
-				cfg, err := NewConfig(version)
+				cfg, err := NewConfig(testCtx, version)
 				So(cfg, ShouldBeNil)
 				So(err, ShouldBeError)
 				expectedError := &UnsupportedMongoVersionError{
@@ -133,7 +135,7 @@ func TestNewConfig(t *testing.T) {
 						return ""
 					}
 					Convey("Then NewConfig uses the XDG_CACHE_HOME env var to determine the cache path", func() {
-						cfg, err := NewConfig(version)
+						cfg, err := NewConfig(testCtx, version)
 						So(err, ShouldBeNil)
 						So(cfg.mongoVersion.String(), ShouldEqual, version)
 						So(cfg.mongoUrl, ShouldEqual, mongoUrl)
@@ -151,7 +153,7 @@ func TestNewConfig(t *testing.T) {
 					Convey("And running on OSX", func() {
 						goOS = "darwin"
 						Convey("Then NewConfig determines the right home cache path", func() {
-							cfg, err := NewConfig(version)
+							cfg, err := NewConfig(testCtx, version)
 							So(err, ShouldBeNil)
 							So(cfg.mongoVersion.String(), ShouldEqual, version)
 							So(cfg.mongoUrl, ShouldEqual, mongoUrl)
@@ -161,7 +163,7 @@ func TestNewConfig(t *testing.T) {
 					Convey("And running on Linux", func() {
 						goOS = "linux"
 						Convey("Then NewConfig determines the right home cache path", func() {
-							cfg, err := NewConfig(version)
+							cfg, err := NewConfig(testCtx, version)
 							So(err, ShouldBeNil)
 							So(cfg.mongoVersion.String(), ShouldEqual, version)
 							So(cfg.mongoUrl, ShouldEqual, mongoUrl)
@@ -171,7 +173,7 @@ func TestNewConfig(t *testing.T) {
 					Convey("And running on Windows", func() {
 						goOS = "win32"
 						Convey("Then NewConfig errors", func() {
-							cfg, err := NewConfig(version)
+							cfg, err := NewConfig(testCtx, version)
 							So(cfg, ShouldBeNil)
 							So(err, ShouldBeError)
 							expectedError := &UnsupportedSystemError{msg: "OS 'win32'"}
@@ -190,7 +192,7 @@ func TestNewConfig(t *testing.T) {
 					return ":invalid", nil
 				}
 				Convey("Then NewConfig errors", func() {
-					cfg, err := NewConfig(version)
+					cfg, err := NewConfig(testCtx, version)
 					So(err, ShouldBeError)
 					So(cfg, ShouldBeNil)
 				})
@@ -210,7 +212,7 @@ func TestNewConfig(t *testing.T) {
 			}
 
 			Convey("Then NewConfig errors", func() {
-				cfg, err := NewConfig(version)
+				cfg, err := NewConfig(testCtx, version)
 				So(cfg, ShouldBeNil)
 				So(err, ShouldEqual, expectedError)
 			})

@@ -50,19 +50,21 @@ import (
 )
 
 func TestExample(t *testing.T) {
+	testCtx := context.Background()
+
 	server, err := mim.Start("5.0.2")
 	if err != nil {
 		// Deal with error
 	}
 	defer server.Stop()
 
-	client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(server.URI()))
+	client, err := mongo.Connect(testCtx, options.Client().ApplyURI(server.URI()))
 	if err != nil {
 		// Deal with error
 	}
 
 	//Use client as needed
-	client.Ping(context.Background(), nil)
+	client.Ping(testCtx, nil)
 }
 
 ```

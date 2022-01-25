@@ -20,37 +20,33 @@ import (
 
 var afs = afero.Afero{Fs: afero.NewOsFs()}
 
-func init() {
-	log.Namespace = "dp-mongodb-in-memory"
-}
-
 // GetMongoDB ensures there is a mongodb binary in the cache path
 // It will download one if not already present in the cache
-func GetMongoDB(cfg Config) error {
+func GetMongoDB(ctx context.Context, cfg Config) error {
 	// Check the cache
 	existsInCache, existsErr := afs.Exists(cfg.cachePath)
 	if existsErr != nil {
-		log.Error(context.Background(), "error checking cache", existsErr)
+		log.Error(ctx, "error checking cache", existsErr)
 		return existsErr
 	}
 	if existsInCache {
-		log.Info(context.Background(), "File found in cache", log.Data{"filename": cfg.cachePath})
+		log.Info(ctx, "File found in cache", log.Data{"filename": cfg.cachePath})
 		return nil
 	} else {
-		return downloadMongoDB(cfg)
+		return downloadMongoDB(ctx, cfg)
 	}
 }
 
 // downloadMongoDB will download a mongodb tarball and
 // store the mongod exec file in the cache path.
 // It returns the path to the saved file
-func downloadMongoDB(cfg Config) error {
+func downloadMongoDB(ctx context.Context, cfg Config) error {
 
 	downloadStartTime := time.Now()
 
-	downloadedFile, downloadErr := downloadFile(cfg.mongoUrl)
+	downloadedFile, downloadErr := downloadFile(ctx, cfg.mongoUrl)
 	if downloadErr != nil {
-		log.Error(context.Background(), "error downloading file", downloadErr, log.Data{"url": cfg.mongoUrl})
+		log.Error(ctx, "error downloading file", downloadErr, log.Data{"url": cfg.mongoUrl})
 		return downloadErr
 	}
 
@@ -59,38 +55,38 @@ func downloadMongoDB(cfg Config) error {
 		_ = afs.Remove(downloadedFile.Name())
 	}()
 
-	validErr := verify(downloadedFile.Name(), cfg)
+	validErr := verify(ctx, cfg, downloadedFile.Name())
 	if validErr != nil {
-		log.Error(context.Background(), "error verifying integrity of MongoDB package", validErr, log.Data{"url": cfg.mongoUrl})
+		log.Error(ctx, "error verifying integrity of MongoDB package", validErr, log.Data{"url": cfg.mongoUrl})
 		return validErr
 	}
 
-	mongodTmpFile, mongoTmpErr := extractMongoBin(downloadedFile)
+	mongodTmpFile, mongoTmpErr := extractMongoBin(ctx, downloadedFile)
 	if mongoTmpErr != nil {
 		return mongoTmpErr
 	}
 
 	mkdirErr := afs.MkdirAll(path.Dir(cfg.cachePath), 0755)
 	if mkdirErr != nil {
-		log.Error(context.Background(), "error creating cache directory", mkdirErr, log.Data{"dir": path.Dir(cfg.cachePath)})
+		log.Error(ctx, "error creating cache directory", mkdirErr, log.Data{"dir": path.Dir(cfg.cachePath)})
 		return mkdirErr
 	}
 
 	renameErr := afs.Rename(mongodTmpFile, cfg.cachePath)
 	if renameErr != nil {
-		log.Error(context.Background(), "error copying mongod binary", renameErr, log.Data{"filename-from": mongodTmpFile, "filename-to": cfg.cachePath})
+		log.Error(ctx, "error copying mongod binary", renameErr, log.Data{"filename-from": mongodTmpFile, "filename-to": cfg.cachePath})
 		return renameErr
 	}
 
-	log.Info(context.Background(), "mongod downloaded and stored in cache", log.Data{"filename": cfg.cachePath, "ellapsed": time.Since(downloadStartTime).String()})
+	log.Info(ctx, "mongod downloaded and stored in cache", log.Data{"filename": cfg.cachePath, "ellapsed": time.Since(downloadStartTime).String()})
 
 	return nil
 }
 
 // downloadFile downloads the file from the given url and stores it in a temporary file.
 // It returns the temporary file where it has been downloaded
-func downloadFile(urlStr string) (afero.File, error) {
-	log.Info(context.Background(), "Downloading file", log.Data{"url": urlStr})
+func downloadFile(ctx context.Context, urlStr string) (afero.File, error) {
+	log.Info(ctx, "Downloading file", log.Data{"url": urlStr})
 
 	resp, httpGetErr := http.Get(urlStr)
 	if httpGetErr != nil {
@@ -121,23 +117,23 @@ func downloadFile(urlStr string) (afero.File, error) {
 		return nil, err
 	}
 
-	log.Info(context.Background(), "Downloaded to temp file", log.Data{"file": tgzTempFile.Name(), "url": urlStr})
+	log.Info(ctx, "Downloaded to temp file", log.Data{"file": tgzTempFile.Name(), "url": urlStr})
 	return tgzTempFile, nil
 }
 
 // extractMongoBin extracts the mongod executable file
 // from the given tarball to a temporary file.
 // It returns the path to the extracted file
-func extractMongoBin(tgzTempFile afero.File) (string, error) {
+func extractMongoBin(ctx context.Context, tgzTempFile afero.File) (string, error) {
 	_, seekErr := tgzTempFile.Seek(0, 0)
 	if seekErr != nil {
-		log.Error(context.Background(), "error seeking back to start of file", seekErr)
+		log.Error(ctx, "error seeking back to start of file", seekErr)
 		return "", seekErr
 	}
 
 	gzReader, gzErr := gzip.NewReader(tgzTempFile)
 	if gzErr != nil {
-		log.Error(context.Background(), "error intializing gzip reader", gzErr, log.Data{"file": tgzTempFile.Name()})
+		log.Error(ctx, "error intializing gzip reader", gzErr, log.Data{"file": tgzTempFile.Name()})
 		return "", gzErr
 	}
 
@@ -149,7 +145,7 @@ func extractMongoBin(tgzTempFile afero.File) (string, error) {
 			return "", fmt.Errorf("did not find a mongod binary in the tar file")
 		}
 		if tarErr != nil {
-			log.Error(context.Background(), "error reading from tar file", tarErr, log.Data{"file": tgzTempFile.Name()})
+			log.Error(ctx, "error reading from tar file", tarErr, log.Data{"file": tgzTempFile.Name()})
 			return "", tarErr
 		}
 
@@ -162,7 +158,7 @@ func extractMongoBin(tgzTempFile afero.File) (string, error) {
 	// atomic behavior if there's multiple parallel downloaders
 	mongodTmpFile, tmpFileErr := afs.TempFile("", "")
 	if tmpFileErr != nil {
-		log.Error(context.Background(), "error creating temp file for mongod", tmpFileErr)
+		log.Error(ctx, "error creating temp file for mongod", tmpFileErr)
 		return "", tmpFileErr
 	}
 	defer func() {
@@ -171,7 +167,7 @@ func extractMongoBin(tgzTempFile afero.File) (string, error) {
 
 	_, writeErr := io.Copy(mongodTmpFile, tarReader)
 	if writeErr != nil {
-		log.Error(context.Background(), "error writing mongod binary", writeErr, log.Data{"filename": mongodTmpFile.Name()})
+		log.Error(ctx, "error writing mongod binary", writeErr, log.Data{"filename": mongodTmpFile.Name()})
 		return "", writeErr
 	}
 
@@ -179,7 +175,7 @@ func extractMongoBin(tgzTempFile afero.File) (string, error) {
 
 	chmodErr := afs.Chmod(mongodTmpFile.Name(), 0755)
 	if chmodErr != nil {
-		log.Error(context.Background(), "error chmod-ing mongod binary", chmodErr, log.Data{"filename": mongodTmpFile.Name()})
+		log.Error(ctx, "error chmod-ing mongod binary", chmodErr, log.Data{"filename": mongodTmpFile.Name()})
 		return "", chmodErr
 	}
 	return mongodTmpFile.Name(), nil
@@ -188,25 +184,25 @@ func extractMongoBin(tgzTempFile afero.File) (string, error) {
 // verify checks the integrity of the mongoFile.
 // It uses the config file to download the checksum and signature files
 // and compares their value against the actual mongoFile checksum and GPG signature
-func verify(mongoFile string, cfg Config) error {
-	if err := verifyChecksum(mongoFile, cfg); err != nil {
+func verify(ctx context.Context, cfg Config, mongoFile string) error {
+	if err := verifyChecksum(ctx, cfg, mongoFile); err != nil {
 		return err
 	}
-	log.Info(context.Background(), "checksum verified successfully", log.Data{"url": cfg.mongoChecksumUrl()})
+	log.Info(ctx, "checksum verified successfully", log.Data{"url": cfg.mongoChecksumUrl()})
 
-	if err := verifySignature(mongoFile, cfg); err != nil {
+	if err := verifySignature(ctx, cfg, mongoFile); err != nil {
 		return err
 	}
-	log.Info(context.Background(), "signature verified successfully", log.Data{"url": cfg.mongoSignatureUrl()})
+	log.Info(ctx, "signature verified successfully", log.Data{"url": cfg.mongoSignatureUrl()})
 
 	return nil
 }
 
-func verifyChecksum(mongoFile string, cfg Config) error {
+func verifyChecksum(ctx context.Context, cfg Config, mongoFile string) error {
 
-	checksumFile, downloadErr := downloadFile(cfg.mongoChecksumUrl())
+	checksumFile, downloadErr := downloadFile(ctx, cfg.mongoChecksumUrl())
 	if downloadErr != nil {
-		log.Error(context.Background(), "error downloading checksum file", downloadErr, log.Data{"url": cfg.mongoChecksumUrl()})
+		log.Error(ctx, "error downloading checksum file", downloadErr, log.Data{"url": cfg.mongoChecksumUrl()})
 		return downloadErr
 	}
 
@@ -217,7 +213,7 @@ func verifyChecksum(mongoFile string, cfg Config) error {
 
 	content, err := afs.ReadFile(checksumFile.Name())
 	if err != nil {
-		log.Error(context.Background(), "error reading checksum file", err)
+		log.Error(ctx, "error reading checksum file", err)
 		return err
 	}
 	s := strings.Split(string(content), " ")
@@ -225,7 +221,7 @@ func verifyChecksum(mongoFile string, cfg Config) error {
 
 	mongoChecksum, err := sha256Sum(mongoFile)
 	if err != nil {
-		log.Error(context.Background(), "error calculating SHA256 sum", err)
+		log.Error(ctx, "error calculating SHA256 sum", err)
 		return err
 	}
 
@@ -235,9 +231,9 @@ func verifyChecksum(mongoFile string, cfg Config) error {
 	return nil
 }
 
-func verifySignature(mongoFilename string, cfg Config) error {
+func verifySignature(ctx context.Context, cfg Config, mongoFilename string) error {
 	// Get public key
-	keyFile, err := getMongoPublicKey(cfg.mongoVersion)
+	keyFile, err := getMongoPublicKey(ctx, cfg.mongoVersion)
 	if err != nil {
 		return err
 	}
@@ -249,14 +245,14 @@ func verifySignature(mongoFilename string, cfg Config) error {
 
 	keyring, err := openpgp.ReadArmoredKeyRing(keyFile)
 	if err != nil {
-		log.Error(context.Background(), "error reading keyring file", err)
+		log.Error(ctx, "error reading keyring file", err)
 		return err
 	}
 
 	// Get signature
-	signatureFile, err := downloadFile(cfg.mongoSignatureUrl())
+	signatureFile, err := downloadFile(ctx, cfg.mongoSignatureUrl())
 	if err != nil {
-		log.Error(context.Background(), "error downloading signature file", err, log.Data{"url": cfg.mongoSignatureUrl()})
+		log.Error(ctx, "error downloading signature file", err, log.Data{"url": cfg.mongoSignatureUrl()})
 		return err
 	}
 
@@ -284,12 +280,12 @@ func verifySignature(mongoFilename string, cfg Config) error {
 	return nil
 }
 
-var getMongoPublicKey = func(version Version) (afero.File, error) {
+var getMongoPublicKey = func(ctx context.Context, version Version) (afero.File, error) {
 	keyUrl := fmt.Sprintf("https://www.mongodb.org/static/pgp/server-%d.%d.asc", version.Major, version.Minor)
 
-	keyFile, err := downloadFile(keyUrl)
+	keyFile, err := downloadFile(ctx, keyUrl)
 	if err != nil {
-		log.Error(context.Background(), "error downloading Mongo public key", err, log.Data{"url": keyUrl})
+		log.Error(ctx, "error downloading Mongo public key", err, log.Data{"url": keyUrl})
 		return nil, err
 	}
 	return keyFile, nil

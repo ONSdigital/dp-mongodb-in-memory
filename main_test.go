@@ -13,12 +13,13 @@ import (
 
 func TestStart(t *testing.T) {
 	versions := []string{"4.4.8", "5.0.2"}
+	testCtx := context.Background()
 
 	for _, version := range versions {
 		Convey("Given the version "+version, t, func() {
 			Convey("When the Start method is called", func() {
-				server, err := Start(version)
-				defer server.Stop()
+				server, err := Start(testCtx, version)
+				defer server.Stop(testCtx)
 
 				Convey("Then no error is returned", func() {
 					So(err, ShouldBeNil)
@@ -49,10 +50,10 @@ func TestStart(t *testing.T) {
 						So(server.watcherCmd.Args[2], ShouldEqual, expectedScript)
 					})
 					Convey("And the server accepts connections", func() {
-						client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(server.URI()))
+						client, err := mongo.Connect(testCtx, options.Client().ApplyURI(server.URI()))
 						So(err, ShouldBeNil)
 						So(client, ShouldNotBeNil)
-						So(client.Ping(context.Background(), nil), ShouldBeNil)
+						So(client.Ping(testCtx, nil), ShouldBeNil)
 					})
 				})
 			})
