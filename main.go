@@ -74,12 +74,18 @@ func Start(ctx context.Context, version string) (*Server, error) {
 		return nil, err
 	}
 
+	delay := time.NewTimer(timeout)
 	select {
 	case server.port = <-startupPortCh:
 	case err := <-startupErrCh:
+		// Ensure timer is stopped and its resources are freed
+		if !delay.Stop() {
+			// if the timer has been stopped then read from the channel
+			<-delay.C
+		}
 		server.Stop(ctx)
 		return nil, err
-	case <-time.After(timeout):
+	case <-delay.C:
 		server.Stop(ctx)
 		return nil, errors.New("timed out waiting for mongod to start")
 	}

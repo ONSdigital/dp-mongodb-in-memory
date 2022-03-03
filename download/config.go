@@ -9,7 +9,7 @@ import (
 	"github.com/ONSdigital/log.go/v2/log"
 )
 
-//folderName is the name of the folder we will be saving mongod in the cache path
+// folderName is the name of the folder we will be saving mongod in the cache path
 const folderName = "dp-mongodb-in-memory"
 
 // getDownloadUrl returns the mongodb download url for a given version

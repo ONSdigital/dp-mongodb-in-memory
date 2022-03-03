@@ -193,10 +193,10 @@ func readKeyValuePairs(r io.Reader) (map[string]string, error) {
 			value = strings.Trim(value, `"`)
 			value = strings.Trim(value, `'`)
 			// expand anything else that could be escaped
-			value = strings.Replace(value, `\"`, `"`, -1)
-			value = strings.Replace(value, `\$`, `$`, -1)
-			value = strings.Replace(value, `\\`, `\`, -1)
-			value = strings.Replace(value, "\\`", "`", -1)
+			value = strings.ReplaceAll(value, `\"`, `"`)
+			value = strings.ReplaceAll(value, `\$`, `$`)
+			value = strings.ReplaceAll(value, `\\`, `\`)
+			value = strings.ReplaceAll(value, "\\`", "`")
 
 			content[key] = value
 		}
