@@ -64,7 +64,10 @@ func TestExample(t *testing.T) {
 	}
 
 	//Use client as needed
-	client.Ping(testCtx, nil)
+	err = client.Ping(testCtx, nil)
+	if err != nil {
+		// Deal with error
+	}
 }
 
 ```
