@@ -101,6 +101,9 @@ func TestNewConfig(t *testing.T) {
 		})
 		Convey("With a non-supported old version", func() {
 			version := "4.2.15"
+			detectLinuxId = func() (string, error) {
+				return "ubuntu2004", nil
+			}
 			Convey("Then an error is returned", func() {
 				cfg, err := NewConfig(testCtx, version)
 				So(cfg, ShouldBeNil)

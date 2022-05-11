@@ -22,6 +22,14 @@ var getDownloadUrl = func(v Version) (string, error) {
 	return spec.GetDownloadURL()
 }
 
+var detectLinuxId = func() (string, error) {
+	osName, err := DetectLinuxId()
+	if err != nil {
+		return "", err
+	}
+	return osName, nil
+}
+
 // getEnv returns the value of an environment variable
 var getEnv = func(key string) string {
 	return os.Getenv(key)
@@ -45,22 +53,38 @@ func NewConfig(ctx context.Context, mongoVersionStr string) (*Config, error) {
 	if versionErr != nil {
 		return nil, versionErr
 	}
-
-	downloadUrl, err := getDownloadUrl(*version)
+	osName, err := detectLinuxId()
 	if err != nil {
 		return nil, err
 	}
+	if osName == "manjaro" {
+		basePath, err := defaultBaseCachePath()
+		if err != nil {
+			log.Error(ctx, "cache directory not found", err)
+			return nil, err
+		}
+		return &Config{
+			mongoVersion: *version,
+			cachePath:    basePath + "/mongod",
+		}, nil
+	} else {
+		downloadUrl, err := getDownloadUrl(*version)
+		if err != nil {
+			return nil, err
+		}
 
-	cachePath, err := buildBinCachePath(ctx, downloadUrl)
-	if err != nil {
-		return nil, err
+		cachePath, err := buildBinCachePath(ctx, downloadUrl)
+		if err != nil {
+			return nil, err
+		}
+
+		return &Config{
+			mongoVersion: *version,
+			mongoUrl:     downloadUrl,
+			cachePath:    cachePath,
+		}, nil
 	}
 
-	return &Config{
-		mongoVersion: *version,
-		mongoUrl:     downloadUrl,
-		cachePath:    cachePath,
-	}, nil
 }
 
 // buildBinCachePath returns the full path to where the mongod binary should be located.
