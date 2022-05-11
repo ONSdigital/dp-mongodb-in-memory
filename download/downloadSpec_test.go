@@ -109,6 +109,15 @@ func TestMakeDownloadSpec(t *testing.T) {
 					expectedSpec *DownloadSpec
 					expectedErr  error
 				}{
+					"Manjaro": {
+						linuxId: "manjaro",
+						expectedSpec: &DownloadSpec{
+							version:  &version,
+							Arch:     "x86_64",
+							Platform: "linux",
+							OSName:   "manjaro",
+						},
+					},
 					"Ubuntu 20.04": {
 						linuxId:      "ubuntu",
 						linuxVersion: "20.04",

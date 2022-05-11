@@ -60,7 +60,7 @@ func MakeDownloadSpec(version Version) (*DownloadSpec, error) {
 		return nil, platformErr
 	}
 
-	osName, osErr := detectLinuxId()
+	osName, osErr := DetectLinuxId()
 	if osErr != nil {
 		return nil, osErr
 	}
@@ -123,7 +123,7 @@ func detectArch() (string, error) {
 	}
 }
 
-func detectLinuxId() (string, error) {
+func DetectLinuxId() (string, error) {
 	if goOS != "linux" {
 		// Not on Linux
 		return "", nil
@@ -142,6 +142,9 @@ func detectLinuxId() (string, error) {
 	}
 
 	id := osRelease["ID"]
+	if id == "manjaro" {
+		return "manjaro", nil
+	}
 	versionString := strings.Split(osRelease["VERSION_ID"], ".")[0]
 	version, versionErr := strconv.Atoi(versionString)
 	if versionErr != nil {
