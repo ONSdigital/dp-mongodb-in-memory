@@ -161,7 +161,7 @@ func TestMakeDownloadSpec(t *testing.T) {
 					"Old Ubuntu": {
 						linuxId:      "ubuntu",
 						linuxVersion: "14.04",
-						expectedErr:  &UnsupportedSystemError{msg: "invalid ubuntu version 14 (min 16)"},
+						expectedErr:  &UnsupportedSystemError{msg: "invalid ubuntu version 14.04 (min 16)"},
 					},
 					"Debian 10": {
 						linuxId:      "debian",
@@ -186,7 +186,7 @@ func TestMakeDownloadSpec(t *testing.T) {
 					"Old Debian": {
 						linuxId:      "debian",
 						linuxVersion: "8.1",
-						expectedErr:  &UnsupportedSystemError{msg: "invalid debian version 8 (min 9)"},
+						expectedErr:  &UnsupportedSystemError{msg: "invalid debian version 8.1 (min 9)"},
 					},
 					"Other Linux": {
 						linuxId:      "fedora",

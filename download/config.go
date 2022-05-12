@@ -22,14 +22,6 @@ var getDownloadUrl = func(v Version) (string, error) {
 	return spec.GetDownloadURL()
 }
 
-var detectLinuxId = func() (string, error) {
-	osName, err := DetectLinuxId()
-	if err != nil {
-		return "", err
-	}
-	return osName, nil
-}
-
 // getEnv returns the value of an environment variable
 var getEnv = func(key string) string {
 	return os.Getenv(key)
@@ -53,11 +45,11 @@ func NewConfig(ctx context.Context, mongoVersionStr string) (*Config, error) {
 	if versionErr != nil {
 		return nil, versionErr
 	}
-	osName, err := detectLinuxId()
+	downloadUrl, err := getDownloadUrl(*version)
 	if err != nil {
 		return nil, err
 	}
-	if osName == "manjaro" {
+	if downloadUrl == DoNotDownload {
 		basePath, err := defaultBaseCachePath()
 		if err != nil {
 			log.Error(ctx, "cache directory not found", err)
@@ -68,11 +60,6 @@ func NewConfig(ctx context.Context, mongoVersionStr string) (*Config, error) {
 			cachePath:    basePath + "/mongod",
 		}, nil
 	} else {
-		downloadUrl, err := getDownloadUrl(*version)
-		if err != nil {
-			return nil, err
-		}
-
 		cachePath, err := buildBinCachePath(ctx, downloadUrl)
 		if err != nil {
 			return nil, err
