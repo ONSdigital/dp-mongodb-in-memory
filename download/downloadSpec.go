@@ -36,6 +36,7 @@ type DownloadSpec struct {
 	// - ubuntu1604
 	// - debian10
 	// - debian92
+	// - manjaro
 	// - "" for MacOS
 	OSName string
 }
@@ -141,6 +142,10 @@ func detectLinuxId() (string, error) {
 	}
 
 	id := osRelease["ID"]
+	if id == "manjaro" {
+		// Arch/Manjaro does not have a VERSION_ID property on /etc/os-release file
+		return "manjaro", nil
+	}
 	versionString := strings.Split(osRelease["VERSION_ID"], ".")[0]
 	version, versionErr := strconv.Atoi(versionString)
 	if versionErr != nil {

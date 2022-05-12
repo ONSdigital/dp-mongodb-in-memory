@@ -174,6 +174,15 @@ func TestMakeDownloadSpec(t *testing.T) {
 							OSName:   "debian92",
 						},
 					},
+					"Manjaro": {
+						linuxId: "manjaro",
+						expectedSpec: &DownloadSpec{
+							version:  &version,
+							Arch:     "x86_64",
+							Platform: "linux",
+							OSName:   "manjaro",
+						},
+					},
 					"Old Debian": {
 						linuxId:      "debian",
 						linuxVersion: "8.1",
