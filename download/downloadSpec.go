@@ -142,14 +142,14 @@ func detectLinuxId() (string, error) {
 	}
 
 	id := osRelease["ID"]
-	if id == "manjaro" {
-		// Arch/Manjaro does not have a VERSION_ID property on /etc/os-release file
-		return "manjaro", nil
-	}
-	versionString := strings.Split(osRelease["VERSION_ID"], ".")[0]
-	version, versionErr := strconv.Atoi(versionString)
-	if versionErr != nil {
-		return "", &UnsupportedSystemError{msg: "invalid version number " + versionString}
+	versionString := osRelease["VERSION_ID"]
+	version := 0
+	if versionString != "" {
+		var versionErr error
+		version, versionErr = strconv.Atoi(strings.Split(versionString, ".")[0])
+		if versionErr != nil {
+			return "", &UnsupportedSystemError{msg: "invalid version number " + versionString}
+		}
 	}
 	switch id {
 	case "ubuntu":
@@ -171,6 +171,8 @@ func detectLinuxId() (string, error) {
 			return "debian92", nil
 		}
 		return "", &UnsupportedSystemError{msg: "invalid debian version " + versionString + " (min 9)"}
+	case "manjaro":
+		return "manjaro", nil
 	default:
 		return "", &UnsupportedSystemError{msg: "invalid linux version '" + id + "'"}
 	}
