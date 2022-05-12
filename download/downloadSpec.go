@@ -18,6 +18,7 @@ const etcOsReleaseFileName = "/etc/os-release"
 
 var goOS = runtime.GOOS
 var goArch = runtime.GOARCH
+var DoNotDownload = "DO_NOT_DOWNLOAD"
 
 // DownloadSpec specifies what copy of MongoDB to download
 type DownloadSpec struct {
@@ -60,7 +61,7 @@ func MakeDownloadSpec(version Version) (*DownloadSpec, error) {
 		return nil, platformErr
 	}
 
-	osName, osErr := DetectLinuxId()
+	osName, osErr := detectLinuxId()
 	if osErr != nil {
 		return nil, osErr
 	}
@@ -80,6 +81,9 @@ func (spec *DownloadSpec) GetDownloadURL() (string, error) {
 
 	switch spec.Platform {
 	case "linux":
+		if spec.OSName == "manjaro" {
+			return DoNotDownload, nil
+		}
 		if spec.OSName == "" {
 			return "", fmt.Errorf("invalid spec: OS name not provided")
 		}
@@ -123,7 +127,7 @@ func detectArch() (string, error) {
 	}
 }
 
-func DetectLinuxId() (string, error) {
+func detectLinuxId() (string, error) {
 	if goOS != "linux" {
 		// Not on Linux
 		return "", nil
@@ -142,13 +146,14 @@ func DetectLinuxId() (string, error) {
 	}
 
 	id := osRelease["ID"]
-	if id == "manjaro" {
-		return "manjaro", nil
-	}
-	versionString := strings.Split(osRelease["VERSION_ID"], ".")[0]
-	version, versionErr := strconv.Atoi(versionString)
-	if versionErr != nil {
-		return "", &UnsupportedSystemError{msg: "invalid version number " + versionString}
+	versionString := osRelease["VERSION_ID"]
+	version := 0
+	if versionString != "" {
+		var versionErr error
+		version, versionErr = strconv.Atoi(strings.Split(versionString, ".")[0])
+		if versionErr != nil {
+			return "", &UnsupportedSystemError{msg: "invalid version number " + versionString}
+		}
 	}
 	switch id {
 	case "ubuntu":
@@ -162,6 +167,8 @@ func DetectLinuxId() (string, error) {
 			return "ubuntu1604", nil
 		}
 		return "", &UnsupportedSystemError{msg: "invalid ubuntu version " + versionString + " (min 16)"}
+	case "manjaro":
+		return "manjaro", nil
 	case "debian":
 		if version >= 10 {
 			return "debian10", nil
