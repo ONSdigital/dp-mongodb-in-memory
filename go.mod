@@ -1,6 +1,6 @@
 module github.com/ONSdigital/dp-mongodb-in-memory
 
-go 1.17
+go 1.18
 
 require (
 	github.com/ONSdigital/log.go/v2 v2.0.9
