@@ -6,7 +6,7 @@ image_resource:
   type: docker-image
   source:
     repository: golang
-    tag: 1.18.2
+    tag: latest
 
 inputs:
   - name: dp-mongodb-in-memory
