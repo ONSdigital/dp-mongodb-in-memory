@@ -179,6 +179,21 @@ func TestMakeDownloadSpec(t *testing.T) {
 						linuxVersion: "8.1",
 						expectedErr:  &UnsupportedSystemError{msg: "invalid debian version 8 (min 9)"},
 					},
+					"Amazon Linux 2": {
+						linuxId:      "amzn",
+						linuxVersion: "2",
+						expectedSpec: &DownloadSpec{
+							version:  &version,
+							Arch:     "x86_64",
+							Platform: "linux",
+							OSName:   "amazon2",
+						},
+					},
+					"Old Amazon Linux": {
+						linuxId:      "amzn",
+						linuxVersion: "1",
+						expectedErr:  &UnsupportedSystemError{msg: "invalid amazon linux version 1 (only 2)"},
+					},
 					"Other Linux": {
 						linuxId:      "fedora",
 						linuxVersion: "17",

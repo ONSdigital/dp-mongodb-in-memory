@@ -36,6 +36,7 @@ type DownloadSpec struct {
 	// - ubuntu1604
 	// - debian10
 	// - debian92
+	// - amazon2
 	// - "" for MacOS
 	OSName string
 }
@@ -166,6 +167,11 @@ func detectLinuxId() (string, error) {
 			return "debian92", nil
 		}
 		return "", &UnsupportedSystemError{msg: "invalid debian version " + versionString + " (min 9)"}
+	case "amzn":
+		if version == 2 {
+			return "amazon2", nil
+		}
+		return "", &UnsupportedSystemError{msg: "invalid amazon linux version " + versionString + " (only 2)"}
 	default:
 		return "", &UnsupportedSystemError{msg: "invalid linux version '" + id + "'"}
 	}
