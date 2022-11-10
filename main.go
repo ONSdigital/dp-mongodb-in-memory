@@ -7,14 +7,19 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"net"
 	"os"
 	"os/exec"
+	"strconv"
 	"time"
 
 	"github.com/ONSdigital/dp-mongodb-in-memory/download"
 	"github.com/ONSdigital/dp-mongodb-in-memory/monitor"
 	"github.com/ONSdigital/log.go/v2/log"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // max time allowed for mongo to start
@@ -26,12 +31,13 @@ type Server struct {
 	watcherCmd *exec.Cmd
 	dbDir      string
 	port       int
+	replSet    string
 }
 
 // Start runs a MongoDB server at a given version using a random free port
 // and returns the Server.
 func Start(ctx context.Context, version string) (*Server, error) {
-	server := new(Server)
+	server := &Server{replSet: "rs0"}
 
 	binPath, err := getOrDownloadBinPath(ctx, version)
 	if err != nil {
@@ -40,15 +46,17 @@ func Start(ctx context.Context, version string) (*Server, error) {
 	}
 
 	// Create a db dir. Even the ephemeralForTest engine needs a dbpath.
-	server.dbDir, err = ioutil.TempDir("", "")
+	server.dbDir, err = os.MkdirTemp("", "")
 	if err != nil {
 		log.Fatal(ctx, "Error creating data directory", err)
 		return nil, err
 	}
 
 	log.Info(ctx, "Starting mongod server", log.Data{"binPath": binPath, "dbDir": server.dbDir})
-	// By specifying port 0, mongo will find and use an available port
-	server.cmd = exec.Command(binPath, "--storageEngine", "ephemeralForTest", "--dbpath", server.dbDir, "--port", "0")
+
+	// Find a free port for the server - unfortunately the initial idea of allowing the mongo server to chose its own port
+	// (by setting a port of 0 in the server commandline) will not work as it interferes with the later replica set initialisation
+	server.cmd = exec.Command(binPath, "--replSet", "rs0", "--dbpath", server.dbDir, "--port", getFreeMongoPort())
 
 	startupErrCh := make(chan error)
 	startupPortCh := make(chan int)
@@ -90,7 +98,18 @@ func Start(ctx context.Context, version string) (*Server, error) {
 		return nil, errors.New("timed out waiting for mongod to start")
 	}
 
-	log.Info(ctx, fmt.Sprintf("mongod started up and reported port number %d", server.port))
+	// Initialise the server as a replica set
+	c, err := mongo.Connect(ctx, options.Client().ApplyURI(server.URI()+"/admin?directConnection=true"))
+	if err != nil {
+		return nil, err
+	}
+	replSetConfig := fmt.Sprintf(`{"_id": "rs0", "members": [{"_id": 0, "host": "localhost:%d"}]}`, server.Port())
+	res := c.Database("admin").RunCommand(ctx, bson.D{{"replSetInitiate", replSetConfig}})
+	if err = res.Err(); err != nil {
+		return nil, err
+	}
+
+	log.Info(ctx, fmt.Sprintf("mongod started up with port number %d, and replicata set name %s", server.Port(), server.ReplicaSet()))
 
 	return server, nil
 }
@@ -125,6 +144,11 @@ func (s *Server) Port() int {
 // URI returns a mongodb:// URI to connect to
 func (s *Server) URI() string {
 	return fmt.Sprintf("mongodb://localhost:%d", s.port)
+}
+
+// ReplicaSet returns the Replica Set name being used by the server (cluster of 1)
+func (s *Server) ReplicaSet() string {
+	return s.replSet
 }
 
 func getOrDownloadBinPath(ctx context.Context, version string) (string, error) {
@@ -162,7 +186,7 @@ func stdHandler(ctx context.Context, okCh chan<- int, errCh chan<- error) io.Wri
 				severity := logMessage["s"]
 				if severity == "E" || severity == "F" {
 					// error or fatal
-					errCh <- fmt.Errorf("Mongod startup failed: %s", message)
+					errCh <- fmt.Errorf("mongod startup failed: %s", message)
 				} else if severity == "I" && message == "Waiting for connections" {
 					// Mongo running successfully: find port
 					attr := logMessage["attr"].(map[string]interface{})
@@ -179,4 +203,20 @@ func stdHandler(ctx context.Context, okCh chan<- int, errCh chan<- error) io.Wri
 	}()
 
 	return writer
+}
+
+// getFreeMongoPort is simple utility to find a free port on the "localhost" interface of the host machine
+// for a local mongo server to use. If any error occurs the default mongo port of "27017" is returned
+func getFreeMongoPort() (port string) {
+	l, err := net.ListenTCP("tcp", &net.TCPAddr{IP: net.ParseIP(`127.0.0.1`)})
+	if err != nil {
+		return "27017"
+	}
+	defer func(l *net.TCPListener) {
+		if err := l.Close(); err != nil {
+			port = "27017"
+		}
+	}(l)
+
+	return strconv.Itoa(l.Addr().(*net.TCPAddr).Port)
 }
