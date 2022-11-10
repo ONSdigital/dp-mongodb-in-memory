@@ -70,18 +70,17 @@ func TestStart(t *testing.T) {
 func TestGetFreeMongoPort(t *testing.T) {
 	Convey("When getFreeMongoPort() is called n times, where n > 1", t, func() {
 		n := 10
-		defaultPort := "27017"
 
-		Convey("A free, non default and usable port should be returned every time", func() {
+		Convey("A free, usable port should be returned every time", func() {
 			for i := 0; i < n; i++ {
-				port := getFreeMongoPort()
-				So(port, ShouldNotEqual, defaultPort)
+				port, err := getFreeMongoPort()
+				So(err, ShouldBeNil)
+				So(port, ShouldNotEqual, 0)
 
-				l, e := net.Listen("tcp", "localhost:"+port)
+				l, e := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
 				So(e, ShouldBeNil)
 				So(l, ShouldNotBeNil)
-				e = l.Close()
-				So(e, ShouldBeNil)
+				_ = l.Close()
 			}
 		})
 	})

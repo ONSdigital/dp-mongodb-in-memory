@@ -37,18 +37,25 @@ type Server struct {
 // Start runs a MongoDB server at a given version using a random free port
 // and returns the Server.
 func Start(ctx context.Context, version string) (*Server, error) {
+	var err error
+
 	server := &Server{replSet: "rs0"}
+	server.port, err = getFreeMongoPort()
+	if err != nil {
+		log.Fatal(ctx, "Could not get a free port for the mongo server", err)
+		return nil, err
+	}
+
+	server.dbDir, err = os.MkdirTemp("", "")
+	if err != nil {
+		log.Fatal(ctx, "Error creating data directory", err)
+		return nil, err
+	}
 
 	binPath, err := getOrDownloadBinPath(ctx, version)
 	if err != nil {
 		log.Fatal(ctx, "Could not find mongodb", err)
-		return nil, err
-	}
-
-	// Create a db dir. Even the ephemeralForTest engine needs a dbpath.
-	server.dbDir, err = os.MkdirTemp("", "")
-	if err != nil {
-		log.Fatal(ctx, "Error creating data directory", err)
+		server.Stop(ctx)
 		return nil, err
 	}
 
@@ -56,7 +63,7 @@ func Start(ctx context.Context, version string) (*Server, error) {
 
 	// Find a free port for the server - unfortunately the initial idea of allowing the mongo server to chose its own port
 	// (by setting a port of 0 in the server commandline) will not work as it interferes with the later replica set initialisation
-	server.cmd = exec.Command(binPath, "--replSet", "rs0", "--dbpath", server.dbDir, "--port", getFreeMongoPort())
+	server.cmd = exec.Command(binPath, "--replSet", server.replSet, "--dbpath", server.dbDir, "--port", strconv.Itoa(server.port))
 
 	startupErrCh := make(chan error)
 	startupPortCh := make(chan int)
@@ -103,13 +110,13 @@ func Start(ctx context.Context, version string) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	replSetConfig := fmt.Sprintf(`{"_id": "rs0", "members": [{"_id": 0, "host": "localhost:%d"}]}`, server.Port())
+	replSetConfig := fmt.Sprintf(`{"_id": %s, "members": [{"_id": 0, "host": "localhost:%d"}]}`, server.ReplicaSet(), server.Port())
 	res := c.Database("admin").RunCommand(ctx, bson.D{{"replSetInitiate", replSetConfig}})
 	if err = res.Err(); err != nil {
 		return nil, err
 	}
 
-	log.Info(ctx, fmt.Sprintf("mongod started up with port number %d, and replicata set name %s", server.Port(), server.ReplicaSet()))
+	log.Info(ctx, fmt.Sprintf("mongod started up with port number %d, and replica set name %s", server.Port(), server.ReplicaSet()))
 
 	return server, nil
 }
@@ -206,17 +213,17 @@ func stdHandler(ctx context.Context, okCh chan<- int, errCh chan<- error) io.Wri
 }
 
 // getFreeMongoPort is simple utility to find a free port on the "localhost" interface of the host machine
-// for a local mongo server to use. If any error occurs the default mongo port of "27017" is returned
-func getFreeMongoPort() (port string) {
-	l, err := net.ListenTCP("tcp", &net.TCPAddr{IP: net.ParseIP(`127.0.0.1`)})
+// for a local mongo server to use
+func getFreeMongoPort() (port int, err error) {
+	var l *net.TCPListener
+
+	l, err = net.ListenTCP("tcp", &net.TCPAddr{IP: net.ParseIP(`127.0.0.1`)})
 	if err != nil {
-		return "27017"
+		return
 	}
 	defer func(l *net.TCPListener) {
-		if err := l.Close(); err != nil {
-			port = "27017"
-		}
+		err = l.Close()
 	}(l)
 
-	return strconv.Itoa(l.Addr().(*net.TCPAddr).Port)
+	return l.Addr().(*net.TCPAddr).Port, nil
 }
