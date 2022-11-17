@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ONSdigital/dp-mongodb-in-memory/download"
@@ -37,33 +38,77 @@ type Server struct {
 // Start runs a MongoDB server at a given version using a random free port
 // and returns the Server.
 func Start(ctx context.Context, version string) (*Server, error) {
-	var err error
+	return StartWithOptions(ctx, version)
+}
 
-	server := &Server{replSet: "rs0"}
-	server.port, err = getFreeMongoPort()
-	if err != nil {
-		log.Fatal(ctx, "Could not get a free port for the mongo server", err)
-		return nil, err
+// StartWithReplicaSet runs a MongoDB server (of the given version) as a replica set (with the given name).
+// If a name is not given, a default name of "rs0" is used.
+// The server uses a random free port and returns the Server
+func StartWithReplicaSet(ctx context.Context, version, replicaSetName string) (*Server, error) {
+	if replicaSetName == "" {
+		replicaSetName = "rs0"
 	}
 
-	server.dbDir, err = os.MkdirTemp("", "")
-	if err != nil {
-		log.Fatal(ctx, "Error creating data directory", err)
-		return nil, err
+	return StartWithOptions(ctx, version, WithReplicaSet(replicaSetName))
+}
+
+// ServerOption defines the template function for defining options that may be used to configure the server
+// The options available are given by the exported variables: WithPort, WithReplicaSet, WithDatabaseDir
+type ServerOption func(*Server)
+
+var (
+	WithReplicaSet  = func(n string) ServerOption { return func(s *Server) { s.replSet = n } }
+	WithPort        = func(p int) ServerOption { return func(s *Server) { s.port = p } }
+	WithDatabaseDir = func(d string) ServerOption { return func(s *Server) { s.dbDir = d } }
+)
+
+// StartWithOptions runs a MongoDB server a given version with 0 or more options as defined:
+// WithReplicaSet, WithPort, WithDatabaseDir
+//
+// If an empty string is provided in WithReplicaSet, the server is started as a standalone server
+// If a port value of 0 is provided in WithReplicaSet, the server is on a random port
+// If an empty string is provided in WithDatabaseDir, the server is started with a random temporary directory
+func StartWithOptions(ctx context.Context, version string, so ...ServerOption) (*Server, error) {
+	var err error
+
+	server := &Server{}
+	for _, o := range so {
+		o(server)
+	}
+
+	if server.port == 0 {
+		server.port, err = getFreeMongoPort()
+		if err != nil {
+			log.Fatal(ctx, "Could not get a free port for the mongo server", err)
+			return nil, err
+		}
+	}
+
+	if server.dbDir == "" {
+		server.dbDir, err = os.MkdirTemp("", "")
+		if err != nil {
+			log.Fatal(ctx, "Error creating data directory", err)
+			return nil, err
+		}
 	}
 
 	binPath, err := getOrDownloadBinPath(ctx, version)
 	if err != nil {
 		log.Fatal(ctx, "Could not find mongodb", err)
-		server.Stop(ctx)
 		return nil, err
 	}
 
 	log.Info(ctx, "Starting mongod server", log.Data{"binPath": binPath, "dbDir": server.dbDir})
 
-	// Find a free port for the server - unfortunately the initial idea of allowing the mongo server to chose its own port
-	// (by setting a port of 0 in the server commandline) will not work as it interferes with the later replica set initialisation
-	server.cmd = exec.Command(binPath, "--replSet", server.replSet, "--dbpath", server.dbDir, "--port", strconv.Itoa(server.port))
+	args := []string{"--bind_ip", "localhost", "--port", strconv.Itoa(server.port), "--dbpath", server.dbDir}
+	switch server.replSet {
+	case "":
+		args = append(args, "--storageEngine", "ephemeralForTest")
+	default:
+		args = append(args, "--storageEngine", "wiredTiger", "--replSet", server.replSet)
+	}
+
+	server.cmd = exec.Command(binPath, args...)
 
 	startupErrCh := make(chan error)
 	startupPortCh := make(chan int)
@@ -106,17 +151,19 @@ func Start(ctx context.Context, version string) (*Server, error) {
 	}
 
 	// Initialise the server as a replica set
-	c, err := mongo.Connect(ctx, options.Client().ApplyURI(server.URI()+"/admin?directConnection=true"))
-	if err != nil {
-		return nil, err
-	}
-	replSetConfig := fmt.Sprintf(`{"_id": %s, "members": [{"_id": 0, "host": "localhost:%d"}]}`, server.ReplicaSet(), server.Port())
-	res := c.Database("admin").RunCommand(ctx, bson.D{{"replSetInitiate", replSetConfig}})
-	if err = res.Err(); err != nil {
-		return nil, err
+	if server.replSet != "" {
+		c, err := mongo.Connect(ctx, options.Client().ApplyURI(server.URI()+"/admin?directConnection=true"))
+		if err != nil {
+			return nil, err
+		}
+		replSetConfig := fmt.Sprintf(`{"_id": %s, "members": [{"_id": 0, "host": "localhost:%d"}]}`, server.ReplicaSet(), server.Port())
+		res := c.Database("admin").RunCommand(ctx, bson.D{{"replSetInitiate", replSetConfig}})
+		if err = res.Err(); err != nil {
+			return nil, err
+		}
 	}
 
-	log.Info(ctx, fmt.Sprintf("mongod started up with port number %d, and replica set name %s", server.Port(), server.ReplicaSet()))
+	log.Info(ctx, fmt.Sprintf("mongod started up with the following configuration: %s", server))
 
 	return server, nil
 }
@@ -156,6 +203,22 @@ func (s *Server) URI() string {
 // ReplicaSet returns the Replica Set name being used by the server (cluster of 1)
 func (s *Server) ReplicaSet() string {
 	return s.replSet
+}
+
+// DBdir returns the database directory being used by the server
+func (s *Server) DBdir() string {
+	return s.dbDir
+}
+
+func (s *Server) String() string {
+	buf := new(strings.Builder)
+	_, _ = fmt.Fprintf(buf, "listening on: localhost:%d;", s.port)
+	_, _ = fmt.Fprintf(buf, " using DB directory: %s;", s.dbDir)
+	if s.replSet != "" {
+		_, _ = fmt.Fprintf(buf, " configured as a cluster with replica set name: %s", s.replSet)
+	}
+
+	return buf.String()
 }
 
 func getOrDownloadBinPath(ctx context.Context, version string) (string, error) {

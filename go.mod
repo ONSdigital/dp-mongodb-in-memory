@@ -2,6 +2,8 @@ module github.com/ONSdigital/dp-mongodb-in-memory
 
 go 1.19
 
+retract v1.4.0 // Now considered unsafe as the semantics of the Start() function implicitly changed
+
 require (
 	github.com/ONSdigital/log.go/v2 v2.0.9
 	github.com/smartystreets/goconvey v1.7.2
