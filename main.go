@@ -35,8 +35,7 @@ type Server struct {
 	replSet    string
 }
 
-// Start runs a MongoDB server at a given version using a random free port
-// and returns the Server.
+// Start runs a MongoDB server of the given version using a random free port and returns the Server.
 func Start(ctx context.Context, version string) (*Server, error) {
 	return StartWithOptions(ctx, version)
 }
@@ -62,11 +61,11 @@ var (
 	WithDatabaseDir = func(d string) ServerOption { return func(s *Server) { s.dbDir = d } }
 )
 
-// StartWithOptions runs a MongoDB server a given version with 0 or more options as defined:
+// StartWithOptions runs a MongoDB server of the given version, with 0 or more options as defined:
 // WithReplicaSet, WithPort, WithDatabaseDir
 //
 // If an empty string is provided in WithReplicaSet, the server is started as a standalone server
-// If a port value of 0 is provided in WithReplicaSet, the server is on a random port
+// If a port value of 0 is provided in WithPort, the server is started on a random port
 // If an empty string is provided in WithDatabaseDir, the server is started with a random temporary directory
 func StartWithOptions(ctx context.Context, version string, so ...ServerOption) (*Server, error) {
 	var err error
