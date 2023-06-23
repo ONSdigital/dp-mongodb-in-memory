@@ -15,7 +15,7 @@ import (
 )
 
 func TestStart_All(t *testing.T) {
-	versions := []string{"4.4.22", "5.0.2"}
+	versions := []string{"4.4.8", "5.0.2"}
 	testCtx := context.Background()
 
 	for _, version := range versions {
