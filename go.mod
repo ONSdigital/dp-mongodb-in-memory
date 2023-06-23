@@ -1,6 +1,9 @@
 module github.com/ONSdigital/dp-mongodb-in-memory
 
-go 1.19
+go 1.20
+
+// to fix: [CVE-2023-32731] CWE-Other
+replace google.golang.org/grpc => google.golang.org/grpc v1.55.0
 
 require (
 	github.com/ONSdigital/log.go/v2 v2.4.1
