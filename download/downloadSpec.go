@@ -118,6 +118,8 @@ func detectArch() (string, error) {
 	switch goArch {
 	case "amd64":
 		return "x86_64", nil
+	case "arm64":
+		return "arm64", nil
 	default:
 		return "", &UnsupportedSystemError{msg: "architecture " + goArch + " not supported"}
 	}

@@ -100,6 +100,25 @@ func TestMakeDownloadSpec(t *testing.T) {
 				})
 			})
 
+			Convey("And on Mac M1", func() {
+				goOS = "darwin"
+				goArch = "arm64"
+				Convey("Then the returned spec is correct", func() {
+					spec, err := MakeDownloadSpec(version)
+
+					So(err, ShouldBeNil)
+					So(spec, ShouldResemble, &DownloadSpec{
+						version: &Version{
+							Major: 5,
+							Minor: 0,
+							Patch: 4,
+						},
+						Arch:     "arm64",
+						Platform: "osx",
+					})
+				})
+			})
+
 			Convey("And on Linux", func() {
 				goOS = "linux"
 
