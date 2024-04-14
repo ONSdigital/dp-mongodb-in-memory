@@ -80,7 +80,9 @@ var (
 func StartWithOptions(ctx context.Context, version string, so ...ServerOption) (*Server, error) {
 	var err error
 
-	server := &Server{}
+	server := &Server{
+		minMongoLogLvl: LogDebug,
+	}
 	for _, o := range so {
 		o(server)
 	}
