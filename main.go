@@ -279,25 +279,25 @@ func stdHandler(ctx context.Context, okCh chan<- int, errCh chan<- error, minLog
 
 				switch minLogLvl {
 				case Dbg:
-					log.Info(ctx, fmt.Sprintf("[mongod] %s", text))
+					log.Info(ctx, fmt.Sprintf("[mongod] %s", message))
 				case Inf:
 					if severity == "D" {
 						// debug
 						continue
 					}
-					log.Info(ctx, fmt.Sprintf("[mongod] %s", text))
+					log.Info(ctx, fmt.Sprintf("[mongod] %s", message))
 				case Wrn:
 					if severity == "D" || severity == "I" {
 						// debug or info
 						continue
 					}
-					log.Warn(ctx, fmt.Sprintf("[mongod] %s", text))
+					log.Warn(ctx, fmt.Sprintf("[mongod] %s", message))
 				case Err:
 					if severity == "D" || severity == "I" || severity == "W" {
 						// debug, info or warning
 						continue
 					}
-					log.Error(ctx, fmt.Sprintf("[mongod] %s", text), nil)
+					log.Error(ctx, fmt.Sprintf("[mongod] %s", message), nil)
 				}
 			}
 		}
