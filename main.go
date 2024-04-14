@@ -36,22 +36,18 @@ type Server struct {
 	minMongoLogLvl MongodLogLvl
 }
 
-type MongodLogLvl int64
+type MongodLogLvl int
 
 const (
-	Dbg MongodLogLvl = iota
-	Inf
-	Wrn
-	Err
+	LogError MongodLogLvl = iota
+	LogInfo
+	LogWarn
+	LogDebug
 )
 
 // Start runs a MongoDB server of the given version using a random free port and returns the Server.
 func Start(ctx context.Context, version string) (*Server, error) {
 	return StartWithOptions(ctx, version)
-}
-
-func (s *Server) SetMinLogLevel(lvl MongodLogLvl) {
-	s.minMongoLogLvl = lvl
 }
 
 // StartWithReplicaSet runs a MongoDB server (of the given version) as a replica set (with the given name).
@@ -125,7 +121,7 @@ func StartWithOptions(ctx context.Context, version string, so ...ServerOption) (
 
 	startupErrCh := make(chan error)
 	startupPortCh := make(chan int)
-	stdHandler := stdHandler(ctx, startupPortCh, startupErrCh, server.minMongoLogLvl)
+	stdHandler := server.getStdHandler(ctx, startupPortCh, startupErrCh)
 	server.cmd.Stdout = stdHandler
 	server.cmd.Stderr = stdHandler
 
@@ -234,6 +230,10 @@ func (s *Server) String() string {
 	return buf.String()
 }
 
+func (s *Server) SetMinLogLevel(lvl MongodLogLvl) {
+	s.minMongoLogLvl = lvl
+}
+
 func getOrDownloadBinPath(ctx context.Context, version string) (string, error) {
 	config, err := download.NewConfig(ctx, version)
 	if err != nil {
@@ -247,11 +247,11 @@ func getOrDownloadBinPath(ctx context.Context, version string) (string, error) {
 	return config.MongoPath(), nil
 }
 
-// stdHandler handler relays messages from stdout/stderr to our logger.
+// getStdHandler handler relays messages from stdout/stderr to our logger.
 // It accepts 2 channels:
 // errCh will receive any error logged,
 // okCh will receive the port number if mongodb started successfully
-func stdHandler(ctx context.Context, okCh chan<- int, errCh chan<- error, minLogLvl MongodLogLvl) io.Writer {
+func (s *Server) getStdHandler(ctx context.Context, okCh chan<- int, errCh chan<- error) io.Writer {
 	reader, writer := io.Pipe()
 
 	go func() {
@@ -267,37 +267,33 @@ func stdHandler(ctx context.Context, okCh chan<- int, errCh chan<- error, minLog
 				log.Info(ctx, fmt.Sprintf("[mongod] %s", text))
 			} else {
 				message := logMessage["msg"]
-				severity := logMessage["s"]
-				if severity == "E" || severity == "F" {
+				delete(logMessage, "msg")
+				msg := fmt.Sprintf("[mongod] %s", message)
+				switch logMessage["s"] { // severity
+				case "E":
+					fallthrough
+				case "F":
 					// error or fatal
 					errCh <- fmt.Errorf("mongod startup failed: %s", message)
-				} else if severity == "I" && message == "Waiting for connections" {
-					// Mongo running successfully: find port
-					attr := logMessage["attr"].(map[string]interface{})
-					okCh <- int(attr["port"].(float64))
-				}
-
-				switch minLogLvl {
-				case Dbg:
-					log.Info(ctx, fmt.Sprintf("[mongod] %s", message))
-				case Inf:
-					if severity == "D" {
-						// debug
-						continue
+					log.Error(ctx, msg, nil, logMessage)
+				case "W":
+					if s.minMongoLogLvl >= LogWarn {
+						log.Warn(ctx, msg, logMessage)
 					}
-					log.Info(ctx, fmt.Sprintf("[mongod] %s", message))
-				case Wrn:
-					if severity == "D" || severity == "I" {
-						// debug or info
-						continue
+				case "I":
+					if message == "Waiting for connections" {
+						// Mongo running successfully: find port
+						attr := logMessage["attr"].(map[string]interface{})
+						okCh <- int(attr["port"].(float64))
 					}
-					log.Warn(ctx, fmt.Sprintf("[mongod] %s", message))
-				case Err:
-					if severity == "D" || severity == "I" || severity == "W" {
-						// debug, info or warning
-						continue
+					if s.minMongoLogLvl >= LogInfo {
+						log.Info(ctx, msg, logMessage)
 					}
-					log.Error(ctx, fmt.Sprintf("[mongod] %s", message), nil)
+				case "D":
+				default:
+					if s.minMongoLogLvl >= LogDebug {
+						log.Info(ctx, msg, logMessage)
+					}
 				}
 			}
 		}
