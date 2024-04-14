@@ -262,7 +262,8 @@ func stdHandler(ctx context.Context, okCh chan<- int, errCh chan<- error, minLog
 			var logMessage log.Data
 			err := json.Unmarshal([]byte(text), &logMessage)
 			if err != nil {
-				// Output the message as is if not json
+				// Output the message as is if not json.
+				// Log to info as unable to extract severity
 				log.Info(ctx, fmt.Sprintf("[mongod] %s", text))
 			} else {
 				message := logMessage["msg"]
