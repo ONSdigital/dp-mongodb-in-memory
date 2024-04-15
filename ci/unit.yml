@@ -6,7 +6,7 @@ image_resource:
   type: docker-image
   source:
     repository: golang
-    tag: 1.22.2-bullseye
+    tag: latest
 # tag specific version to avoid: error while loading shared libraries: libcrypto.so.1.1  for later versions
 
 inputs:
