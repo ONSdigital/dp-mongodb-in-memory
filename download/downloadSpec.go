@@ -31,6 +31,7 @@ type DownloadSpec struct {
 	Arch string
 
 	// OSName is one of:
+	// - ubuntu2204
 	// - ubuntu2004
 	// - ubuntu1804
 	// - ubuntu1604
@@ -118,6 +119,8 @@ func detectArch() (string, error) {
 	switch goArch {
 	case "amd64":
 		return "x86_64", nil
+	case "arm64":
+		return "arm64", nil
 	default:
 		return "", &UnsupportedSystemError{msg: "architecture " + goArch + " not supported"}
 	}
@@ -149,6 +152,9 @@ func detectLinuxId() (string, error) {
 	}
 	switch id {
 	case "ubuntu":
+		if version >= 22 {
+			return "ubuntu2204", nil
+		}
 		if version >= 20 {
 			return "ubuntu2004", nil
 		}
@@ -160,6 +166,9 @@ func detectLinuxId() (string, error) {
 		}
 		return "", &UnsupportedSystemError{msg: "invalid ubuntu version " + versionString + " (min 16)"}
 	case "debian":
+		if version >= 12 {
+			return "debian12", nil
+		}
 		if version >= 10 {
 			return "debian10", nil
 		}

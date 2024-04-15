@@ -100,6 +100,25 @@ func TestMakeDownloadSpec(t *testing.T) {
 				})
 			})
 
+			Convey("And on Mac M1 etc", func() {
+				goOS = "darwin"
+				goArch = "arm64"
+				Convey("Then the returned spec is correct", func() {
+					spec, err := MakeDownloadSpec(version)
+
+					So(err, ShouldBeNil)
+					So(spec, ShouldResemble, &DownloadSpec{
+						version: &Version{
+							Major: 5,
+							Minor: 0,
+							Patch: 4,
+						},
+						Arch:     "arm64",
+						Platform: "osx",
+					})
+				})
+			})
+
 			Convey("And on Linux", func() {
 				goOS = "linux"
 
@@ -109,6 +128,16 @@ func TestMakeDownloadSpec(t *testing.T) {
 					expectedSpec *DownloadSpec
 					expectedErr  error
 				}{
+					"Ubuntu 22.04": {
+						linuxId:      "ubuntu",
+						linuxVersion: "22.04",
+						expectedSpec: &DownloadSpec{
+							version:  &version,
+							Arch:     "x86_64",
+							Platform: "linux",
+							OSName:   "ubuntu2204",
+						},
+					},
 					"Ubuntu 20.04": {
 						linuxId:      "ubuntu",
 						linuxVersion: "20.04",
@@ -153,6 +182,16 @@ func TestMakeDownloadSpec(t *testing.T) {
 						linuxId:      "ubuntu",
 						linuxVersion: "14.04",
 						expectedErr:  &UnsupportedSystemError{msg: "invalid ubuntu version 14 (min 16)"},
+					},
+					"Debian 12": {
+						linuxId:      "debian",
+						linuxVersion: "12",
+						expectedSpec: &DownloadSpec{
+							version:  &version,
+							Arch:     "x86_64",
+							Platform: "linux",
+							OSName:   "debian12",
+						},
 					},
 					"Debian 10": {
 						linuxId:      "debian",

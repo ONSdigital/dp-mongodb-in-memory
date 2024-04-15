@@ -1,8 +1,10 @@
 # dp-mongodb-in-memory
+
 Library that runs an in-memory MongoDB instance for Go unit tests.
 It's based on [memongo](https://github.com/benweissmann/memongo).
 
 ## How it works
+
 - It detects your operating system and platform to determine the download URL for the right MongoDB binary.
 
 - It will download MongoDB and store it in a [cache location](#cache-location). Any following execution will use the copy from the cache. Therefore internet connection is only required the first time a particular MongoDB version is used.
@@ -16,6 +18,7 @@ It's based on [memongo](https://github.com/benweissmann/memongo).
 - Additionally, a _watcher_ process will start in background ensuring that the mongod process is killed when the current process exits. This guarantees that no process is left behind even if the tests exit uncleanly or you don't call `Stop()`.
 
 ### Supported versions
+
 The following Unix systems are supported:
 - MacOS
 - Ubuntu 16.04 or greater
