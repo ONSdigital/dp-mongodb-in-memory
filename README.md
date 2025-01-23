@@ -20,6 +20,7 @@ It's based on [memongo](https://github.com/benweissmann/memongo).
 ### Supported versions
 
 The following Unix systems are supported:
+
 - MacOS
 - Ubuntu 16.04 or greater
 - Debian 9.2 or greater
@@ -42,46 +43,46 @@ go get github.com/ONSdigital/dp-mongodb-in-memory
 ## Usage
 
 Call:
-    `Start(ctx, version)`, `StartWithReplicaSet(ctx, version, replicaSetName)`, or `StartWithOptions(ctx, version, ...options)` where version is the MongoDB version you want to use. You can then use `URI()` to connect a client to it. 
+    `Start(ctx, version)`, `StartWithReplicaSet(ctx, version, replicaSetName)`, or `StartWithOptions(ctx, version, ...options)` where version is the MongoDB version you want to use. You can then use `URI()` to connect a client to it.
 Call `Stop()` when you are done with the server.
 
 ```go
 package example
 
 import (
-	"context"
-	"testing"
+    "context"
+    "testing"
 
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+    "go.mongodb.org/mongo-driver/mongo"
+    "go.mongodb.org/mongo-driver/mongo/options"
 
-	mim "github.com/ONSdigital/dp-mongodb-in-memory"
+    mim "github.com/ONSdigital/dp-mongodb-in-memory"
 )
 
 func TestExample(t *testing.T) {
-	testCtx := context.Background()
+    testCtx := context.Background()
 
-	server, err := mim.Start(testCtx, "5.0.2")
-	// OR
-	server, err = mim.StartWithReplicaSet(testCtx, "5.0.2", "my-replica-set")
-	// OR
-	server, err = mim.StartWithOptions(testCtx, "5.0.2", mim.WithPort(27017), mim.WithDatabaseDir("/var/tmp/my-temp-dir"))
+    server, err := mim.Start(testCtx, "5.0.2")
+    // OR
+    server, err = mim.StartWithReplicaSet(testCtx, "5.0.2", "my-replica-set")
+    // OR
+    server, err = mim.StartWithOptions(testCtx, "5.0.2", mim.WithPort(27017), mim.WithDatabaseDir("/var/tmp/my-temp-dir"))
 
-	if err != nil {
-		// Deal with error
-	}
-	defer server.Stop(testCtx)
+    if err != nil {
+        // Deal with error
+    }
+    defer server.Stop(testCtx)
 
-	client, err := mongo.Connect(testCtx, options.Client().ApplyURI(server.URI()))
-	if err != nil {
-		// Deal with error
-	}
+    client, err := mongo.Connect(testCtx, options.Client().ApplyURI(server.URI()))
+    if err != nil {
+        // Deal with error
+    }
 
-	//Use client as needed
-	err = client.Ping(testCtx, nil)
-	if err != nil {
-		// Deal with error
-	}
+    //Use client as needed
+    err = client.Ping(testCtx, nil)
+    if err != nil {
+        // Deal with error
+    }
 }
 
 ```
