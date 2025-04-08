@@ -88,7 +88,7 @@ func (spec *DownloadSpec) GetDownloadURL() (string, error) {
 	case "osx":
 		archiveName += "macos-" + spec.Arch
 	default:
-		return "", fmt.Errorf("invalid spec: unsupported platform " + spec.Platform)
+		return "", fmt.Errorf("invalid spec: unsupported platform %s", spec.Platform)
 	}
 
 	return fmt.Sprintf(
