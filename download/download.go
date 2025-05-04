@@ -61,15 +61,17 @@ func downloadMongoDB(ctx context.Context, cfg Config) error {
 		return validErr
 	}
 
-	mongodTmpFile, mongoTmpErr := extractMongoBin(ctx, downloadedFile)
-	if mongoTmpErr != nil {
-		return mongoTmpErr
-	}
+	binCacheFolder := path.Dir(cfg.cachePath)
 
-	mkdirErr := afs.MkdirAll(path.Dir(cfg.cachePath), 0755)
+	mkdirErr := afs.MkdirAll(binCacheFolder, 0755)
 	if mkdirErr != nil {
 		log.Error(ctx, "error creating cache directory", mkdirErr, log.Data{"dir": path.Dir(cfg.cachePath)})
 		return mkdirErr
+	}
+
+	mongodTmpFile, mongoTmpErr := extractMongoBin(ctx, downloadedFile, binCacheFolder)
+	if mongoTmpErr != nil {
+		return mongoTmpErr
 	}
 
 	renameErr := afs.Rename(mongodTmpFile, cfg.cachePath)
@@ -124,7 +126,7 @@ func downloadFile(ctx context.Context, urlStr string) (afero.File, error) {
 // extractMongoBin extracts the mongod executable file
 // from the given tarball to a temporary file.
 // It returns the path to the extracted file
-func extractMongoBin(ctx context.Context, tgzTempFile afero.File) (string, error) {
+func extractMongoBin(ctx context.Context, tgzTempFile afero.File, destFolder string) (string, error) {
 	_, seekErr := tgzTempFile.Seek(0, 0)
 	if seekErr != nil {
 		log.Error(ctx, "error seeking back to start of file", seekErr)
@@ -156,7 +158,7 @@ func extractMongoBin(ctx context.Context, tgzTempFile afero.File) (string, error
 
 	// Extract to a temp file first, then copy to the destination, so we get
 	// atomic behavior if there's multiple parallel downloaders
-	mongodTmpFile, tmpFileErr := afs.TempFile("", "")
+	mongodTmpFile, tmpFileErr := afs.TempFile(destFolder, "")
 	if tmpFileErr != nil {
 		log.Error(ctx, "error creating temp file for mongod", tmpFileErr)
 		return "", tmpFileErr
