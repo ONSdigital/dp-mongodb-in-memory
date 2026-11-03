@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"github.com/ONSdigital/log.go/v2/log"
+	"github.com/ProtonMail/go-crypto/openpgp"
 	"github.com/spf13/afero"
-	"golang.org/x/crypto/openpgp"
 )
 
 var afs = afero.Afero{Fs: afero.NewOsFs()}
@@ -272,7 +272,7 @@ func verifySignature(ctx context.Context, cfg Config, mongoFilename string) erro
 	}()
 
 	// Verify signature
-	_, err = openpgp.CheckArmoredDetachedSignature(keyring, mongoFile, signatureFile)
+	_, err = openpgp.CheckArmoredDetachedSignature(keyring, mongoFile, signatureFile, nil)
 	if err != nil {
 		return fmt.Errorf("signature verification failed")
 	}
