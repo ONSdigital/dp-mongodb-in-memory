@@ -4,15 +4,16 @@ go 1.24
 
 require (
 	github.com/ONSdigital/log.go/v2 v2.4.5
+	github.com/ProtonMail/go-crypto v1.5.2
 	github.com/smartystreets/goconvey v1.8.1
 	github.com/spf13/afero v1.14.0
-	go.mongodb.org/mongo-driver v1.17.3
-	golang.org/x/crypto v0.37.0
+	go.mongodb.org/mongo-driver v1.17.10
 )
 
 require (
 	github.com/ONSdigital/dp-api-clients-go/v2 v2.266.0 // indirect
 	github.com/ONSdigital/dp-net/v3 v3.2.0 // indirect
+	github.com/cloudflare/circl v1.6.3 // indirect
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
@@ -33,9 +34,10 @@ require (
 	go.opentelemetry.io/otel v1.35.0 // indirect
 	go.opentelemetry.io/otel/metric v1.35.0 // indirect
 	go.opentelemetry.io/otel/trace v1.35.0 // indirect
-	golang.org/x/sync v0.13.0 // indirect
-	golang.org/x/sys v0.32.0 // indirect
-	golang.org/x/text v0.24.0 // indirect
+	golang.org/x/crypto v0.41.0 // indirect
+	golang.org/x/sync v0.16.0 // indirect
+	golang.org/x/sys v0.35.0 // indirect
+	golang.org/x/text v0.28.0 // indirect
 )
 
 retract (

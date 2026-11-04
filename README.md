@@ -25,6 +25,7 @@ The following Unix systems are supported:
 - Ubuntu 16.04 or greater
 - Debian 9.2 or greater
 - Amazon Linux 2
+- Go 1.24.6 or later
 
 The supported MongoDB versions are 4.4 and above.
 

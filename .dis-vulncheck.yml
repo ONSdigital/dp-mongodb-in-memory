@@ -1,0 +1,6 @@
+---
+ignore:
+  - id: GO-2026-5970
+    module: golang.org/x/text
+    reason: "The fixed x/text version requires Go 1.25, but CI unit tests must run on Go 1.24.6."
+    expiry: 2027-04-02
