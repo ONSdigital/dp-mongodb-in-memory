@@ -4,3 +4,7 @@ ignore:
     module: golang.org/x/text
     reason: "The fixed x/text version requires Go 1.25, but CI unit tests must run on Go 1.24.6."
     expiry: 2027-04-02
+  - id: GO-2026-6865
+    module: github.com/klauspost/compress
+    reason: "The fixed klauspost/compress version requires Go 1.25, but CI unit tests must run on Go 1.24.6."
+    expiry: 2027-04-02
